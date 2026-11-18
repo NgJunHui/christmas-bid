@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 
 export const metadata: Metadata = {
-  title: "Hello | my-next-app",
+  title: "Hello | christmas-bid",
 };
 
 export default function HelloPage() {

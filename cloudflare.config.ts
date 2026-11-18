@@ -2,7 +2,7 @@ import { bindings, defineConfig, defineWorker } from "cf/config";
 
 export default defineConfig({
   worker: defineWorker({
-    name: "my-next-app",
+    name: "christmas-bid",
     entrypoint: "vinext/server/fetch-handler",
     compatibilityDate: "2026-11-18",
     compatibilityFlags: ["nodejs_compat"],
