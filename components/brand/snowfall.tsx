@@ -11,8 +11,13 @@ function rand(seed: number): number {
   return x - Math.floor(x);
 }
 
-export function Snowfall({ count = 42, className }: { count?: number; className?: string }) {
-  const flakes = Array.from({ length: count }, (_, i) => {
+/**
+ * `seed` gives a second layer different flake positions; layers with the same seed would
+ * stack exactly on top of each other.
+ */
+export function Snowfall({ count = 42, seed = 0, className }: { count?: number; seed?: number; className?: string }) {
+  const flakes = Array.from({ length: count }, (_, index) => {
+    const i = index + seed * 997;
     const size = 3 + rand(i + 1) * 9; // 3–12px, the large ones read as soft bokeh
     const duration = 11 + rand(i + 101) * 14;
     return {

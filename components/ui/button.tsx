@@ -20,11 +20,6 @@ const buttonVariants = cva(
         /** Gold outline on green. */
         outline: "border border-gold/55 bg-surface/60 text-gold hover:border-gold hover:bg-surface",
         danger: "bg-holly text-snow hover:bg-holly-deep",
-        /** Vivid green pill for light surfaces (home page). */
-        evergreen:
-          "bg-evergreen text-snow shadow-[0_12px_28px_-10px_oklch(51%_0.135_150/0.7)] hover:bg-evergreen-deep focus-visible:outline-evergreen-deep",
-        "evergreen-outline":
-          "border-2 border-evergreen/60 text-evergreen-deep hover:border-evergreen hover:bg-evergreen/8 focus-visible:outline-evergreen-deep",
         ghost: "text-fg-muted hover:bg-surface-2 hover:text-fg",
         link: "h-auto rounded-sm px-0 text-fg-muted underline decoration-line-strong underline-offset-4 hover:text-fg hover:decoration-fg-faint",
       },

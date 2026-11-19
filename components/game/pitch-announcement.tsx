@@ -4,6 +4,7 @@ import { Hourglass, WifiOff } from "lucide-react";
 import { motion, useReducedMotion } from "motion/react";
 import { useEffect, useState } from "react";
 import { GiftStack, Sparkle } from "@/components/brand/art";
+import { XmasLoader } from "@/components/brand/xmas-loader";
 import { Button } from "@/components/ui/button";
 import { CreditPill } from "./credit-pill";
 import { useGame } from "./game-context";
@@ -71,16 +72,20 @@ export function PitchAnnouncement() {
               <NameLines name={pitcher.displayName} rest={rest} />
             ) : (
               <>
-                {/* Spinner in the name's place while the pitcher is drawn; the line below keeps its
-                    space (hidden, so it can't give the draw away) so nothing jumps when the name lands. */}
-                <span aria-hidden>
-                  <NameLines
-                    name={<span className="inline-block size-[0.8em] animate-spin rounded-full border-[0.1em] border-gold/25 border-t-gold align-middle" />}
-                    rest={rest}
-                    restHidden
-                  />
+                {/* While the pitcher is drawn: the bobbing baubles + "Generating names…", laid over an
+                    invisible copy of the final heading so it takes exactly that space and nothing
+                    jumps when the name lands. */}
+                <span aria-hidden className="relative block">
+                  <span className="invisible block">
+                    <NameLines name={pitcher.displayName} rest={rest} />
+                  </span>
+                  {/* Baubles and text side by side on one line (small baubles to match the text height). */}
+                  <span className="absolute inset-0 flex items-center justify-center gap-3">
+                    <XmasLoader className="shrink-0" />
+                    <span className="whitespace-nowrap font-sans text-lg font-medium text-fg-muted">Generating names…</span>
+                  </span>
                 </span>
-                <span className="sr-only">Drawing the next gift…</span>
+                <span className="sr-only">Generating names…</span>
               </>
             )}
           </h1>

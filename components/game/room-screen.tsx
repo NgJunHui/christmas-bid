@@ -1,10 +1,11 @@
 "use client";
 
 import { WifiOff } from "lucide-react";
-import { AnimatePresence, motion } from "motion/react";
+import { AnimatePresence, motion, useIsPresent } from "motion/react";
 import { useRouter } from "next/navigation";
-import { useEffect, useMemo, type ReactNode } from "react";
+import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { toast } from "sonner";
+import { Logo } from "@/components/brand/art";
 import { useGameRoom } from "@/hooks/use-game-room";
 import type { Phase } from "@/lib/game/types";
 import { cn } from "@/lib/utils";
@@ -32,6 +33,21 @@ const PHASE_VIEW: Record<Exclude<Phase, "ENDED">, () => ReactNode> = {
   // Reached only if the last pitcher leaves for good; otherwise the final confirm ends the game.
   AWAITING_END: () => <WrapUp />,
 };
+
+/**
+ * While a stage animates out, keep feeding it the game state it was showing, not the next
+ * phase's. Otherwise a stage re-renders mid-exit with data it can't handle: e.g. "Next bid"
+ * opens the next round straight away, and the bid results would re-render with that new
+ * round (no reveal yet) and crash.
+ */
+function StageSnapshot({ children }: { children: ReactNode }) {
+  const live = useGame();
+  const isPresent = useIsPresent();
+  const [shown, setShown] = useState(live);
+  // Track the live state while on screen (React's "store info from previous renders" pattern).
+  if (isPresent && shown !== live) setShown(live);
+  return <GameProvider value={isPresent ? live : shown}>{children}</GameProvider>;
+}
 
 /** Floating status pill, only when something needs attention. */
 function StatusPill() {
@@ -103,23 +119,30 @@ export function RoomScreen({ code }: { code: string }) {
   return (
     <GameProvider value={value}>
       {/*
-        Full-screen app shell: no nav bar. One centred, phone-width column at every screen size,
-        so desktop looks exactly like mobile. The leave button is pinned to the far right of the window.
+        Full-screen app shell. A slim top nav (Bidmas centred, the leave button pinned to the far
+        right of the window), then one centred, phone-width column at every screen size, so
+        desktop looks exactly like mobile.
       */}
       <div className="relative flex h-dvh flex-col">
-        <div className="pointer-events-none absolute inset-x-0 top-0 z-30 flex items-start justify-between gap-3 px-4 pt-[max(1rem,env(safe-area-inset-top))]">
-          <span />
+        <header className="shrink-0 px-4 pt-[max(1rem,env(safe-area-inset-top))]">
+          <div className="grid h-11 grid-cols-[1fr_auto_1fr] items-center">
+            <span />
+            <Logo />
+            <span className="justify-self-end">
+              <LeaveGameButton />
+            </span>
+          </div>
+        </header>
+        {/* "Reconnecting…" and similar float just under the nav, only when needed. */}
+        <div className="pointer-events-none absolute inset-x-0 top-[calc(max(1rem,env(safe-area-inset-top))+3.25rem)] z-30 flex justify-center px-4">
           <StatusPill />
-          <span className="pointer-events-auto">
-            <LeaveGameButton />
-          </span>
         </div>
 
         <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain">
-          <main className="mx-auto flex min-h-full w-full max-w-md flex-col px-5 pt-16 short:pt-14">
+          <main className="mx-auto flex min-h-full w-full max-w-md flex-col px-5 pt-4 short:pt-2">
             <AnimatePresence mode="wait" initial={false}>
               <motion.div key={stageKey} className="flex flex-1 flex-col">
-                {PHASE_VIEW[phase]()}
+                <StageSnapshot>{PHASE_VIEW[phase]()}</StageSnapshot>
               </motion.div>
             </AnimatePresence>
           </main>

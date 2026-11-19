@@ -16,18 +16,22 @@ export function FormShell({
   children: ReactNode;
 }) {
   return (
-    <main className="min-h-dvh">
-      <Link
-        href="/"
-        aria-label="Back to home"
-        className="card fixed left-4 top-4 z-20 grid size-11 place-items-center rounded-full text-fg-muted transition-colors hover:text-fg"
-      >
-        <ArrowLeft className="size-5" />
-      </Link>
-      <div className="mx-auto flex min-h-dvh w-full max-w-md flex-col px-5 pb-[max(1.5rem,env(safe-area-inset-bottom))] pt-20 sm:pt-24">
-        <div className="flex justify-center pb-10">
+    <main className="flex min-h-dvh flex-col">
+      {/* Top nav: back arrow at the far left, Bidmas centred, both on the same 44px row. */}
+      <header className="shrink-0 px-4 pt-[max(1rem,env(safe-area-inset-top))]">
+        <div className="relative flex h-11 items-center justify-center">
+          <Link
+            href="/"
+            aria-label="Back to home"
+            // Borderless, like the in-game leave button.
+            className="absolute left-0 grid size-11 place-items-center rounded-full text-fg-muted transition-colors hover:bg-surface/60 hover:text-fg"
+          >
+            <ArrowLeft className="size-5" />
+          </Link>
           <Logo />
         </div>
+      </header>
+      <div className="mx-auto flex w-full max-w-md flex-1 flex-col px-5 pb-[max(1.5rem,env(safe-area-inset-bottom))] pt-10 sm:pt-14">
         <div className="flex flex-col items-center gap-3 pb-9 text-center">
           {eyebrow ? <p className="text-eyebrow font-semibold uppercase text-gold/80">{eyebrow}</p> : null}
           <h1 className="font-display text-headline text-gold">{title}</h1>
