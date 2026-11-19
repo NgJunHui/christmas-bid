@@ -53,7 +53,7 @@ async function startBidding(host: Seat, seats: Seat[]) {
   for (const seat of seats) await expect(seat.page.getByRole("timer")).toBeVisible();
 }
 
-test("a full Christmas Bid game", async ({ browser }) => {
+test("a full Bidmas game", async ({ browser }) => {
   const host = await openSeat(browser, "Host", false);
   const alex = await openSeat(browser, "Alex");
   const jamie = await openSeat(browser, "Jamie");

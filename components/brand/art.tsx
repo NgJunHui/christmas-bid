@@ -25,23 +25,18 @@ export function SantaHat({ className }: { className?: string }) {
   );
 }
 
-/** Wordmark: "Christmas Bid" in gold serif, with a Santa hat tipped on the C. */
+/** Wordmark: "Bidmas" in gold Fredoka, with a Santa hat tipped on the B (the hat is also the favicon). */
 export function Logo({ size = "sm", className }: { size?: "sm" | "lg"; className?: string }) {
   const large = size === "lg";
   return (
     <span className={cn("relative inline-flex items-baseline font-display font-bold text-gold", className)}>
-      <span className="relative">
-        <SantaHat
-          className={cn(
-            "absolute -rotate-[18deg]",
-            large ? "-left-4 -top-7 w-14 sm:-left-5 sm:-top-9 sm:w-[4.5rem]" : "-left-2 -top-3 w-7",
-          )}
-        />
-        <span className={cn(large ? "text-[3.25rem] leading-none sm:text-[4.5rem]" : "text-xl leading-none")}>
-          Christmas
-        </span>
-      </span>
-      <span className={cn("ml-[0.28em]", large ? "text-[3.25rem] leading-none sm:text-[4.5rem]" : "text-xl leading-none")}>Bid</span>
+      <SantaHat
+        className={cn(
+          "absolute -rotate-[18deg]",
+          large ? "-left-4 -top-7 w-14 sm:-left-5 sm:-top-9 sm:w-[4.5rem]" : "-left-2 -top-3 w-7",
+        )}
+      />
+      <span className={cn(large ? "text-[3.25rem] leading-none sm:text-[4.5rem]" : "text-xl leading-none")}>Bidmas</span>
     </span>
   );
 }
@@ -126,113 +121,6 @@ export function SantaBust({ className }: { className?: string }) {
       <path d="M180 98 H 193 A 15 15 0 0 1 193 128 H 180 Z" fill="var(--color-snow-shade)" />
       <circle cx="230" cy="104" r="16" fill="var(--color-snow)" />
       <circle cx="235" cy="109" r="9" fill="var(--color-snow-shade)" opacity="0.8" />
-    </svg>
-  );
-}
-
-/**
- * Full-body Santa waving, with his sack. Flat shapes with soft radial
- * gradients (light from the top left) give a friendly, dimensional look.
- */
-export function SantaFull({ className }: { className?: string }) {
-  return (
-    <svg viewBox="0 0 300 380" aria-hidden className={className}>
-      <defs>
-        <radialGradient id="sf-red" cx="35%" cy="28%" r="80%">
-          <stop offset="0%" stopColor="oklch(68% 0.19 29)" />
-          <stop offset="55%" stopColor="var(--color-holly)" />
-          <stop offset="100%" stopColor="var(--color-holly-deep)" />
-        </radialGradient>
-        <radialGradient id="sf-sack" cx="38%" cy="30%" r="80%">
-          <stop offset="0%" stopColor="oklch(66% 0.18 31)" />
-          <stop offset="100%" stopColor="oklch(46% 0.16 26)" />
-        </radialGradient>
-        <radialGradient id="sf-skin" cx="40%" cy="35%" r="70%">
-          <stop offset="0%" stopColor="oklch(89% 0.05 62)" />
-          <stop offset="65%" stopColor="var(--color-skin)" />
-          <stop offset="100%" stopColor="var(--color-skin-shade)" />
-        </radialGradient>
-        <radialGradient id="sf-fur" cx="35%" cy="28%" r="80%">
-          <stop offset="0%" stopColor="var(--color-snow)" />
-          <stop offset="60%" stopColor="var(--color-snow)" />
-          <stop offset="100%" stopColor="var(--color-snow-shade)" />
-        </radialGradient>
-        <linearGradient id="sf-boot" x1="0" y1="0" x2="0" y2="1">
-          <stop offset="0%" stopColor="oklch(38% 0.02 60)" />
-          <stop offset="100%" stopColor="oklch(22% 0.015 60)" />
-        </linearGradient>
-        <linearGradient id="sf-gold" x1="0" y1="0" x2="0" y2="1">
-          <stop offset="0%" stopColor="var(--color-gold-bright)" />
-          <stop offset="100%" stopColor="var(--color-gold-deep)" />
-        </linearGradient>
-        <clipPath id="sf-body">
-          <ellipse cx="150" cy="258" rx="80" ry="76" />
-        </clipPath>
-      </defs>
-
-      {/* ground shadow */}
-      <ellipse cx="150" cy="368" rx="104" ry="10" fill="oklch(78% 0.03 150 / 0.55)" />
-
-      {/* waving arm (behind the body) */}
-      <path d="M194 224 C 220 214, 240 192, 248 166" stroke="url(#sf-red)" strokeWidth="34" strokeLinecap="round" fill="none" />
-      <ellipse cx="250" cy="160" rx="20" ry="13" transform="rotate(-62 250 160)" fill="url(#sf-fur)" />
-      <circle cx="257" cy="143" r="17" fill="url(#sf-fur)" />
-      <ellipse cx="240" cy="146" rx="7" ry="10" transform="rotate(-30 240 146)" fill="url(#sf-fur)" />
-
-      {/* legs and boots */}
-      <rect x="108" y="290" width="34" height="56" rx="14" fill="url(#sf-red)" />
-      <rect x="158" y="290" width="34" height="56" rx="14" fill="url(#sf-red)" />
-      <path d="M96 352 C 96 340, 106 334, 120 334 L 140 334 C 146 334, 148 340, 148 346 L 148 368 L 98 368 C 94 368, 92 364, 92 360 Z" fill="url(#sf-boot)" />
-      <path d="M152 346 C 152 340, 154 334, 160 334 L 180 334 C 194 334, 204 340, 204 352 L 208 360 C 208 364, 206 368, 202 368 L 152 368 Z" fill="url(#sf-boot)" />
-
-      {/* coat */}
-      <ellipse cx="150" cy="258" rx="80" ry="76" fill="url(#sf-red)" />
-      <g clipPath="url(#sf-body)">
-        <rect x="140" y="180" width="20" height="160" fill="url(#sf-fur)" />
-        <rect x="60" y="314" width="180" height="30" fill="url(#sf-fur)" />
-        <rect x="60" y="262" width="180" height="22" fill="url(#sf-boot)" />
-      </g>
-      <rect x="129" y="255" width="42" height="36" rx="8" fill="url(#sf-gold)" />
-      <rect x="139" y="263" width="22" height="20" rx="4" fill="oklch(26% 0.02 60)" />
-
-      {/* sack, held by the other hand */}
-      <path d="M58 300 C 30 304, 12 332, 20 354 C 28 376, 94 380, 106 354 C 116 332, 98 302, 72 300 Z" fill="url(#sf-sack)" />
-      <path d="M40 330 C 46 320, 56 316, 64 318" stroke="oklch(72% 0.15 34 / 0.6)" strokeWidth="5" strokeLinecap="round" fill="none" />
-      <path d="M56 304 L 50 284 C 56 278, 76 278, 80 284 L 74 304 Z" fill="url(#sf-sack)" />
-      <ellipse cx="65" cy="301" rx="15" ry="5.5" fill="url(#sf-gold)" />
-      <path d="M104 220 C 88 236, 80 256, 78 278" stroke="url(#sf-red)" strokeWidth="34" strokeLinecap="round" fill="none" />
-      <ellipse cx="78" cy="282" rx="19" ry="12" fill="url(#sf-fur)" />
-      <circle cx="70" cy="292" r="15" fill="url(#sf-fur)" />
-
-      {/* head */}
-      <circle cx="99" cy="142" r="10" fill="var(--color-skin-shade)" />
-      <circle cx="201" cy="142" r="10" fill="var(--color-skin-shade)" />
-      <circle cx="150" cy="136" r="52" fill="url(#sf-skin)" />
-      <ellipse cx="114" cy="150" rx="11" ry="8" fill="var(--color-ember)" opacity="0.4" />
-      <ellipse cx="186" cy="150" rx="11" ry="8" fill="var(--color-ember)" opacity="0.4" />
-      <ellipse cx="130" cy="128" rx="6" ry="8" fill="oklch(24% 0.03 50)" />
-      <ellipse cx="170" cy="128" rx="6" ry="8" fill="oklch(24% 0.03 50)" />
-      <circle cx="132" cy="125" r="2.3" fill="var(--color-snow)" />
-      <circle cx="172" cy="125" r="2.3" fill="var(--color-snow)" />
-
-      {/* beard, smile, moustache, nose, brows */}
-      <path
-        d="M92 142 C 88 196, 104 228, 126 238 C 134 246, 142 250, 150 248 C 158 250, 166 246, 174 238 C 196 228, 212 196, 208 142 C 200 160, 186 170, 172 166 C 164 176, 136 176, 128 166 C 114 170, 100 160, 92 142 Z"
-        fill="url(#sf-fur)"
-      />
-      <path d="M137 177 Q 150 194 163 177 Q 150 183 137 177 Z" fill="var(--color-holly-deep)" />
-      <ellipse cx="150" cy="185" rx="5" ry="2.6" fill="var(--color-ember)" />
-      <path d="M150 166 C 140 156, 116 156, 106 170 C 118 168, 128 176, 150 174 Z" fill="var(--color-snow)" />
-      <path d="M150 166 C 160 156, 184 156, 194 170 C 182 168, 172 176, 150 174 Z" fill="var(--color-snow-shade)" />
-      <ellipse cx="150" cy="158" rx="12" ry="10" fill="oklch(76% 0.09 35)" />
-      <ellipse cx="146" cy="154" rx="4" ry="3" fill="var(--color-snow)" opacity="0.6" />
-      <path d="M120 114 C 126 106, 138 106, 142 112" stroke="var(--color-snow)" strokeWidth="7" strokeLinecap="round" fill="none" />
-      <path d="M158 112 C 162 106, 174 106, 180 114" stroke="var(--color-snow)" strokeWidth="7" strokeLinecap="round" fill="none" />
-
-      {/* hat */}
-      <path d="M100 100 C 104 54, 138 28, 174 32 C 208 36, 230 62, 234 96 C 224 92, 212 96, 206 104 Z" fill="url(#sf-red)" />
-      <rect x="92" y="92" width="116" height="28" rx="14" fill="url(#sf-fur)" />
-      <circle cx="236" cy="100" r="15" fill="url(#sf-fur)" />
     </svg>
   );
 }

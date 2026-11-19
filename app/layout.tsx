@@ -19,7 +19,7 @@ const sans = Geist({
 });
 
 export const metadata: Metadata = {
-  title: { default: "Christmas Bid", template: "%s · Christmas Bid" },
+  title: { default: "Bidmas", template: "%s · Bidmas" },
   description: "Pitch your gift, place your bids, and see who takes home what.",
 };
 

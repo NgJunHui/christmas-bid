@@ -1,7 +1,7 @@
 @import "tailwindcss";
 
 /*
- * Christmas Bid design tokens. Night-forest theme: deep green surfaces,
+ * Bidmas design tokens. Night-forest theme: deep green surfaces,
  * warm gold for headings and actions, cream text, and a little holly red for urgency.
  * Semantic names, so components say what a colour is *for*.
  */
@@ -185,6 +185,11 @@
   background: radial-gradient(circle, oklch(98% 0.01 95 / 0.95) 0%, oklch(98% 0.01 95 / 0.35) 45%, transparent 70%);
   animation: snow-fall linear infinite;
   will-change: transform;
+}
+
+/* Home hero: Santa drops gently into the snow on first paint. Decelerates, no bounce. */
+@keyframes santa-settle {
+  from { opacity: 0; transform: translateY(-14px) scale(0.97); }
 }
 
 @media (prefers-reduced-motion: reduce) {

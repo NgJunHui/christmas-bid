@@ -1,4 +1,4 @@
-# Christmas Bid
+# Bidmas
 
 A real-time party game for gift exchanges. Everyone brings a wrapped gift and gets the same number of credits. Players take turns pitching their gift in a random order, while everyone else bids in secret for 30 seconds. The highest bidder pays the pitcher and takes the gift home. Ties are settled by a real-life tiebreaker, and the host picks the winner.
 
@@ -12,7 +12,7 @@ There are no accounts. You join with a 4-digit room code and a name. Designed fo
 
 ```bash
 npm install
-npm run dev            # http://localhost:5173 (runs in local workerd, Durable Objects included)
+npm run dev            # http://localhost:3000 (runs in local workerd, Durable Objects included)
 ```
 
 To try multiplayer on one machine, open the room in a second browser profile or a private window. Each browser gets its own session.

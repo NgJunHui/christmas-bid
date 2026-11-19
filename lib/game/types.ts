@@ -1,5 +1,5 @@
 /**
- * Domain model for a Christmas Bid room. `RoomState` is the authoritative,
+ * Domain model for a Bidmas room. `RoomState` is the authoritative,
  * persisted record owned by the room's Durable Object. It never leaves the
  * server; clients receive a sanitized `ClientView` (see view.ts).
  */
