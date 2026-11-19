@@ -9,8 +9,7 @@ export default async function CreatePage({ searchParams }: { searchParams: Promi
   const timer = Number((await searchParams).timer);
   return (
     <FormShell
-      eyebrow="Let's get the party started"
-      title="Host a Christmas game"
+      title="Let's get the party started"
       subtitle="Get everyone together and let the bidding begin."
     >
       <CreateRoomForm testBiddingSeconds={Number.isInteger(timer) && timer > 0 ? timer : undefined} />

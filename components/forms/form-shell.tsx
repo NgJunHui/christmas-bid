@@ -10,7 +10,7 @@ export function FormShell({
   subtitle,
   children,
 }: {
-  eyebrow: string;
+  eyebrow?: string;
   title: string;
   subtitle: string;
   children: ReactNode;
@@ -29,7 +29,7 @@ export function FormShell({
           <Logo />
         </div>
         <div className="flex flex-col items-center gap-3 pb-9 text-center">
-          <p className="text-eyebrow font-semibold uppercase text-gold/80">{eyebrow}</p>
+          {eyebrow ? <p className="text-eyebrow font-semibold uppercase text-gold/80">{eyebrow}</p> : null}
           <h1 className="font-display text-headline text-gold">{title}</h1>
           <p className="max-w-[30ch] text-lg text-fg-muted">{subtitle}</p>
         </div>

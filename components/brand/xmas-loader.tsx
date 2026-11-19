@@ -2,15 +2,19 @@ import { cn } from "@/lib/utils";
 
 const BAUBLES = ["var(--color-holly)", "var(--color-gold)", "var(--color-mint)"];
 
-/** Three baubles bobbing in turn: a small, festive "waiting" indicator. Rests still under reduced motion. */
-export function XmasLoader({ className }: { className?: string }) {
+/**
+ * Three baubles bobbing in turn: a small, festive "waiting" indicator. Rests still under reduced motion.
+ * `size="lg"` is the full-screen loading state; the default fits inline next to text.
+ */
+export function XmasLoader({ className, size = "sm" }: { className?: string; size?: "sm" | "lg" }) {
+  const large = size === "lg";
   return (
-    <span aria-hidden className={cn("inline-flex items-end gap-1.5", className)}>
+    <span aria-hidden className={cn("inline-flex items-end", large ? "gap-3" : "gap-1.5", className)}>
       {BAUBLES.map((color, i) => (
         <svg
           key={color}
           viewBox="0 0 12 17"
-          className="h-[1.125rem] w-3 origin-top animate-bob"
+          className={cn("origin-top animate-bob", large ? "h-9 w-6" : "h-[1.125rem] w-3")}
           style={{ animationDelay: `${i * 0.16}s` }}
         >
           <rect x="4" y="0" width="4" height="3.5" rx="1" fill="var(--color-snow-shade)" />

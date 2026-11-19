@@ -2,7 +2,7 @@
 
 import { Gift } from "lucide-react";
 import { useCountdown } from "@/hooks/use-countdown";
-import { plural, possessive } from "@/lib/utils";
+import { possessive } from "@/lib/utils";
 import { BidInput, BidSubmit, useBidDraft } from "./bid-controls";
 import { CountdownTimer } from "./countdown-timer";
 import { useGame } from "./game-context";
@@ -31,9 +31,11 @@ export function BiddingStage() {
 
         <CountdownTimer startedAt={round.timerStartedAt!} endsAt={round.timerEndsAt!} />
 
-        <p className="text-center text-sm text-fg-muted" aria-live="polite">
-          {closed ? "Counting the bids…" : round.bidCount ? `${plural(round.bidCount, "bid")} in so far` : "No bids yet"}
-        </p>
+        {closed ? (
+          <p className="text-center text-sm text-fg-muted" role="status">
+            Counting the bids…
+          </p>
+        ) : null}
 
         {d.isPitcher ? (
           <div className="card flex flex-col items-center gap-2 rounded-[2rem] px-6 py-6 text-center">
@@ -41,7 +43,6 @@ export function BiddingStage() {
               <Gift className="size-5" aria-hidden />
             </span>
             <p className="font-display text-title text-gold">Your gift is up for bidding!</p>
-            <p className="max-w-[32ch] text-fg-muted">You'll receive the winning credits once the host confirms the winner.</p>
           </div>
         ) : credits <= 0 ? (
           <div className="card rounded-[2rem] px-6 py-6 text-center">

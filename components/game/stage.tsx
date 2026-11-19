@@ -45,15 +45,12 @@ export function Eyebrow({ children, className }: { children: ReactNode; classNam
   return <p className={cn("text-eyebrow font-semibold uppercase text-gold/80", className)}>{children}</p>;
 }
 
-/** Calm "waiting on someone else" line with a soft three-dot pulse. */
+/** Calm "waiting on someone else" line with a soft three-dot pulse. Plain text, no box. */
 export function WaitingNote({ children, className }: { children: ReactNode; className?: string }) {
   return (
     <p
       role="status"
-      className={cn(
-        "card flex h-14 items-center justify-center gap-3 rounded-full px-5 text-center font-medium text-fg-muted",
-        className,
-      )}
+      className={cn("flex h-14 items-center justify-center gap-3 px-5 text-center font-medium text-fg-muted", className)}
     >
       <XmasLoader className="shrink-0" />
       {children}

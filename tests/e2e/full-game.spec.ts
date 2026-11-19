@@ -33,7 +33,8 @@ async function joinAs(seat: Seat, code: string) {
 async function waitForPitch(host: Seat, seats: Seat[]): Promise<Seat> {
   await expect(host.page.getByRole("button", { name: "Start bidding" })).toBeEnabled();
   for (const seat of seats) {
-    await expect(seat.page.getByText(/is pitching their gift!|You're up/).first()).toBeVisible();
+    // "Alex turn" for everyone else, "You're up, …!" for the pitcher.
+    await expect(seat.page.getByText(/ turn$|You're up/).first()).toBeVisible();
   }
   for (const seat of seats) {
     if (await seat.page.getByText("You're up", { exact: false }).first().isVisible()) return seat;
@@ -106,7 +107,7 @@ test("a full Bidmas game", async ({ browser }) => {
       await placeBid(a!, 5);
       await placeBid(b!, 6);
       await placeBid(a!, 8);
-      await expect(pitcher.page.getByText("2 bids in so far")).toBeVisible();
+      await expect(pitcher.page.getByText(/bids? in so far/)).toHaveCount(0);
       await expect(pitcher.page.getByText("Your gift is up for bidding!")).toBeVisible();
       await a!.page.reload();
       await expect(a!.page.getByText("Your bid: 8")).toBeVisible();

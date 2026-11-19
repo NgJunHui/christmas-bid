@@ -2,13 +2,14 @@
 
 import Link from "next/link";
 import { Mark } from "@/components/brand/art";
+import { XmasLoader } from "@/components/brand/xmas-loader";
 import { Button } from "@/components/ui/button";
 
-export function RoomLoading({ label = "Finding your seat…" }: { label?: string }) {
+export function RoomLoading({ label = "Loading" }: { label?: string }) {
   return (
     <main className="grid min-h-dvh place-items-center px-5" aria-busy>
-      <div className="flex flex-col items-center gap-4 text-fg-muted">
-        <Mark className="size-12 animate-blink" />
+      <div className="flex flex-col items-center gap-5 text-fg-muted">
+        <XmasLoader size="lg" />
         <p className="font-medium" role="status">
           {label}
         </p>

@@ -213,8 +213,7 @@ export interface RoundView {
   attemptNumber: number;
   timerStartedAt: number | null;
   timerEndsAt: number | null;
-  /** Aggregate count of bids, only while bidding is open. No amounts or identities. */
-  bidCount: number | null;
+  // No bid count while bidding is open: bidding is fully anonymous until the reveal.
   /** Present only after bidding has closed. */
   reveal: {
     kind: BidOutcomeKind;

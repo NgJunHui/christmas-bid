@@ -80,7 +80,7 @@ export function CreateRoomForm({ testBiddingSeconds }: { testBiddingSeconds?: nu
         />
       </Field>
 
-      <Field id="credits" label="Starting credits per player" error={errors.credits}>
+      <Field id="credits" label="Credits per player" error={errors.credits}>
         <div className="flex items-center gap-3">
           <Button type="button" variant="outline" size="icon" className="size-14" onClick={() => step(-5)} aria-label="5 fewer credits">
             <Minus />

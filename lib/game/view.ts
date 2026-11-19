@@ -44,7 +44,6 @@ export function toRoundView(state: RoomState, round: Round): RoundView {
     attemptNumber: round.attemptNumber,
     timerStartedAt: round.timerStartedAt,
     timerEndsAt: round.timerEndsAt,
-    bidCount: round.status === "BIDDING" ? round.bids.length : null,
     reveal: revealOf(round),
     winnerId: round.winnerId,
     winningAmount: round.winningAmount,

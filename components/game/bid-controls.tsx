@@ -90,7 +90,7 @@ export function BidInput({ draft }: { draft: BidDraft }) {
   const disabled = draft.closed || draft.busy;
   return (
     <div className="card flex w-full flex-col gap-3 rounded-[2rem] px-4 py-5 short:gap-1.5 short:py-3 sm:px-6">
-      <p className="text-center font-medium text-fg short:hidden">How many credits is this gift worth to you?</p>
+      <p className="text-center font-medium text-fg short:hidden">How much would you like to bid?</p>
       <div className="flex items-center gap-3">
         <StepButton label="One credit less" onClick={() => draft.set(draft.amount - 1)} disabled={disabled || draft.amount <= 1}>
           <Minus />

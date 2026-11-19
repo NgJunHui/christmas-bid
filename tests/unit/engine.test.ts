@@ -62,21 +62,27 @@ describe("room setup", () => {
     expect(!long.ok && long.error.code).toBe("INVALID_INPUT");
   });
 
-  it("only accepts letters and numbers, up to 20", () => {
+  it("accepts letters, numbers and single spaces, up to 20", () => {
     expect(isValidName("Alex")).toBe(true);
     expect(isValidName("Player7")).toBe(true);
     expect(isValidName("José")).toBe(true);
+    expect(isValidName("Mary Jane")).toBe(true);
+    expect(isValidName("Santa Claus 2")).toBe(true);
     expect(isValidName("x".repeat(20))).toBe(true);
     expect(isValidName("x".repeat(21))).toBe(false);
-    for (const bad of ["Mary Jane", "Al-ex", "Sam!", "🎄Tree", "a_b", ""]) expect(isValidName(bad)).toBe(false);
+    for (const bad of ["Al-ex", "Sam!", "🎄Tree", "a_b", "", " Alex", "Alex ", "Mary  Jane"]) expect(isValidName(bad)).toBe(false);
     const { state, clock } = lobby(["Host"]);
-    const spaced = addPlayer(state, { id: "s", displayName: "Mary Jane", tokenHash: "h" }, clock.ctx());
-    expect(!spaced.ok && spaced.error.code).toBe("INVALID_INPUT");
+    // Extra spaces are normalized away before validation.
+    const spaced = addPlayer(state, { id: "s", displayName: "  Mary   Jane ", tokenHash: "h" }, clock.ctx());
+    expect(spaced.ok && spaced.state.players.at(-1)!.displayName).toBe("Mary Jane");
   });
 
   it("sanitizes name input as you type", () => {
-    expect(sanitizeNameInput("Mary Jane!")).toEqual({ value: "MaryJane", changed: true });
+    expect(sanitizeNameInput("Mary Jane!")).toEqual({ value: "Mary Jane", changed: true });
     expect(sanitizeNameInput("Alex")).toEqual({ value: "Alex", changed: false });
+    // Space tidying is silent: no leading or double spaces, a trailing one is kept for the next word.
+    expect(sanitizeNameInput("  Mary  Jane")).toEqual({ value: "Mary Jane", changed: false });
+    expect(sanitizeNameInput("Mary ")).toEqual({ value: "Mary ", changed: false });
     expect(sanitizeNameInput("a".repeat(25)).value).toHaveLength(20);
   });
 
@@ -192,11 +198,10 @@ describe("bidding rules", () => {
     for (const viewer of ids) {
       const view = toClientView(next, viewer, everyone(ids), clock.now);
       expect(view.round!.reveal).toBeNull();
-      expect(view.round!.bidCount).toBe(2);
       const own = viewer === others[0] ? 13 : viewer === others[1] ? 17 : null;
       expect(view.me.myBid).toBe(own);
-      // No bid amounts or bidder identities anywhere in the payload.
-      expect(JSON.stringify(view)).not.toMatch(/"amount"|"bids"|"topBidderIds"/);
+      // No bid amounts, bidder identities, or even a bid count anywhere in the payload.
+      expect(JSON.stringify(view)).not.toMatch(/"amount"|"bids"|"topBidderIds"|"bidCount"/);
     }
   });
 

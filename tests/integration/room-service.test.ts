@@ -192,7 +192,7 @@ describe("a full round over sockets", () => {
     for (const [playerId, socket] of sockets) {
       for (const raw of socket.raw) {
         if (!raw.includes('"ROOM_STATE"')) continue;
-        expect(raw).not.toMatch(/"amount"|"bids"|"topBidderIds"/);
+        expect(raw).not.toMatch(/"amount"|"bids"|"topBidderIds"|"bidCount"/);
         const view = (JSON.parse(raw) as { view: ClientView }).view;
         if (view.round?.status === "BIDDING" && playerId !== a!.playerId && playerId !== b!.playerId) {
           expect(view.me.myBid).toBeNull();
@@ -200,7 +200,6 @@ describe("a full round over sockets", () => {
       }
     }
     expect(sockets.get(a!.playerId)!.lastView().me.myBid).toBe(11);
-    expect(hostSocket.lastView().round!.bidCount).toBe(2);
 
     // Deadline passes; the alarm closes bidding and everyone sees the same reveal.
     h.clock.now = deadlines[0]!;

@@ -9,34 +9,22 @@ import { CreditPill } from "./credit-pill";
 import { useGame } from "./game-context";
 import { Eyebrow, Stage, StageActions, StageBody, WaitingNote } from "./stage";
 
-/** Flick through names before landing on the pitcher, only when the round has just been drawn. */
-function useNameShuffle(names: string[], final: string, active: boolean): { name: string; settled: boolean } {
+/** Spin briefly before revealing the pitcher, only when the round has just been drawn. */
+function useDrawSpin(pitcherId: string, active: boolean): boolean {
   const reduce = useReducedMotion();
-  const [state, setState] = useState({ name: final, settled: !active || Boolean(reduce) || names.length < 2 });
+  const [settled, setSettled] = useState(!active || Boolean(reduce));
 
   useEffect(() => {
-    if (!active || reduce || names.length < 2) {
-      setState({ name: final, settled: true });
+    if (!active || reduce) {
+      setSettled(true);
       return;
     }
-    let i = 0;
-    const id = setInterval(() => {
-      i += 1;
-      setState({ name: names[(i * 7 + 3) % names.length]!, settled: false });
-    }, 75);
-    const stop = setTimeout(() => {
-      clearInterval(id);
-      setState({ name: final, settled: true });
-    }, 950);
-    return () => {
-      clearInterval(id);
-      clearTimeout(stop);
-    };
-    // Run once per round; `names` identity changes with every snapshot.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [final, active, reduce]);
+    setSettled(false);
+    const stop = setTimeout(() => setSettled(true), 950);
+    return () => clearTimeout(stop);
+  }, [pitcherId, active, reduce]);
 
-  return state;
+  return settled;
 }
 
 export function PitchAnnouncement() {
@@ -45,11 +33,8 @@ export function PitchAnnouncement() {
   const round = d.round!;
   const pitcher = d.pitcher!;
   const justDrawn = cause === "GAME_STARTED" || cause === "ROUND_CHANGED";
-  const { name, settled } = useNameShuffle(
-    view.players.map((p) => p.displayName),
-    pitcher.displayName,
-    justDrawn,
-  );
+  const settled = useDrawSpin(pitcher.id, justDrawn);
+  const headline = d.isPitcher ? `You're up, ${pitcher.displayName}!` : `${pitcher.displayName} turn`;
 
   return (
     <Stage>
@@ -79,19 +64,21 @@ export function PitchAnnouncement() {
         </div>
 
         <div className="flex flex-col items-center gap-3">
+          {d.isPitcher ? null : <CreditPill credits={view.me.credits} />}
           <h1 className="max-w-[16ch] font-display text-headline text-gold sm:text-[3.25rem] sm:leading-none">
-            <span aria-hidden className={settled ? undefined : "text-fg-faint"}>
-              {d.isPitcher ? `You're up, ${name}!` : `${name} is pitching their gift!`}
-            </span>
-            <span className="sr-only">
-              {d.isPitcher ? `You're up, ${pitcher.displayName}!` : `${pitcher.displayName} is pitching their gift!`}
-            </span>
+            {settled ? (
+              <span aria-hidden>{headline}</span>
+            ) : (
+              // Spinning while the pitcher is drawn; one line tall so nothing jumps when the name lands.
+              <span aria-hidden className="inline-grid h-[1.04em] place-items-center align-middle sm:h-[1em]">
+                <span className="block size-[0.8em] animate-spin rounded-full border-[0.11em] border-gold/25 border-t-gold" />
+              </span>
+            )}
+            <span className="sr-only">{settled ? headline : "Drawing the next gift…"}</span>
           </h1>
           {d.isPitcher ? (
             <p className="max-w-[36ch] text-lg text-fg-muted">It's time to convince everyone your gift is worth their credits.</p>
-          ) : (
-            <CreditPill credits={view.me.credits} />
-          )}
+          ) : null}
           {!pitcher.isConnected ? (
             <p className="card flex max-w-sm items-start gap-2.5 rounded-2xl px-4 py-3 text-left text-sm font-medium text-gold">
               <WifiOff className="mt-0.5 size-4 shrink-0" aria-hidden />
@@ -120,11 +107,9 @@ export function PitchAnnouncement() {
               <Hourglass />
               Start bidding
             </Button>
-            <p className="text-center text-sm text-fg-muted">
-              {d.isPitcher
-                ? "You can't bid on your own gift, but you run the clock."
-                : `Everyone gets ${view.room.biddingSeconds} seconds to bid in secret.`}
-            </p>
+            {d.isPitcher ? (
+              <p className="text-center text-sm text-fg-muted">You can't bid on your own gift, but you run the clock.</p>
+            ) : null}
           </>
         ) : (
           <WaitingNote>Waiting for the bidding to begin.</WaitingNote>

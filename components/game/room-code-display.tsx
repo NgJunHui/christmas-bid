@@ -2,17 +2,21 @@
 
 import { Check, Copy } from "lucide-react";
 import { motion } from "motion/react";
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { toast } from "sonner";
+import { Button } from "@/components/ui/button";
 
 /**
- * Kahoot-style "Join at … with Game PIN" panel. The PIN is four big gold
- * tiles; the small copy icon copies an invite link with the PIN filled in.
+ * Kahoot-style Game PIN panel: four big gold tiles and one action that copies an
+ * invite link with the PIN filled in (no URL on screen).
+ *
+ * One centred column at every size. The tile row is a container, and the tiles size
+ * themselves from its width (cqi units), so they fit a 320px phone (~54px tiles) and
+ * still read from across the room on a laptop or TV (~95px tiles, capped).
  */
 export function RoomCodeDisplay({ code }: { code: string }) {
   const [copied, setCopied] = useState(false);
-  const [host, setHost] = useState("");
-  useEffect(() => setHost(window.location.host), []);
+  const digits = code.split("");
 
   const copyLink = async () => {
     try {
@@ -26,35 +30,36 @@ export function RoomCodeDisplay({ code }: { code: string }) {
   };
 
   return (
-    <section className="card flex w-full max-w-2xl flex-col items-center gap-5 rounded-[2.25rem] px-5 py-6 sm:flex-row sm:justify-between sm:px-8">
-      <div className="flex flex-col items-center gap-1 text-center sm:items-start sm:text-left">
-        <p className="flex items-center gap-1.5 text-sm text-fg-muted">
-          Join at <span className="font-semibold text-fg">{host ? `${host}/join` : "this site"}</span>
-          <button
-            type="button"
-            onClick={copyLink}
-            aria-label="Copy invite link"
-            className="-my-2 grid size-9 place-items-center rounded-full text-gold transition-colors hover:bg-surface-2"
-          >
-            {copied ? <Check className="size-4" /> : <Copy className="size-4" />}
-          </button>
-        </p>
-        <p className="text-eyebrow font-semibold uppercase text-gold/80">with Game PIN</p>
+    <section
+      aria-labelledby="game-pin-heading"
+      className="card flex w-full max-w-lg flex-col items-center gap-4 rounded-[2.25rem] px-5 py-6 sm:gap-5 sm:px-8 sm:py-7"
+    >
+      <h2 id="game-pin-heading" className="text-eyebrow font-semibold uppercase text-gold/80">
+        Join with Game PIN
+      </h2>
+
+      <p className="sr-only">{digits.join(" ")}</p>
+      <div className="@container w-full max-w-[26rem]" aria-hidden>
+        <div className="grid grid-cols-4 gap-[clamp(0.5rem,3cqi,0.875rem)]">
+          {digits.map((digit, i) => (
+            <motion.span
+              key={i}
+              initial={{ opacity: 0, y: 14, rotate: -8, scale: 0.9 }}
+              animate={{ opacity: 1, y: 0, rotate: 0, scale: 1 }}
+              transition={{ delay: i * 0.07, duration: 0.45, ease: [0.16, 1, 0.3, 1] }}
+              className="grid aspect-[4/5] place-items-center rounded-[clamp(1rem,6cqi,1.625rem)] border border-gold/50 bg-bg-deep/70 font-display text-[clamp(2.25rem,17cqi,4.25rem)] leading-none text-gold shadow-[0_0_24px_-6px_oklch(85%_0.13_87/0.35)]"
+            >
+              {digit}
+            </motion.span>
+          ))}
+        </div>
       </div>
-      <p className="flex gap-2.5 sm:gap-3" aria-label={`Game PIN ${code.split("").join(" ")}`}>
-        {code.split("").map((digit, i) => (
-          <motion.span
-            key={i}
-            aria-hidden
-            initial={{ opacity: 0, y: 14, rotate: -8, scale: 0.9 }}
-            animate={{ opacity: 1, y: 0, rotate: 0, scale: 1 }}
-            transition={{ delay: i * 0.07, duration: 0.45, ease: [0.16, 1, 0.3, 1] }}
-            className="grid h-[5.25rem] w-[4.25rem] place-items-center rounded-3xl border border-gold/50 bg-bg-deep/70 font-display text-[3.25rem] leading-none text-gold shadow-[0_0_24px_-6px_oklch(85%_0.13_87/0.35)] sm:h-24 sm:w-20 sm:text-[3.75rem]"
-          >
-            {digit}
-          </motion.span>
-        ))}
-      </p>
+
+      {/* 44px tall so it's an easy thumb target; the toast announces the result to screen readers. */}
+      <Button type="button" variant="outline" size="sm" onClick={copyLink} className="h-11 px-5">
+        {copied ? <Check aria-hidden /> : <Copy aria-hidden />}
+        {copied ? "Link copied" : "Copy invite link"}
+      </Button>
     </section>
   );
 }
