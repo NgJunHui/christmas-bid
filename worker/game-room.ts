@@ -57,6 +57,10 @@ export class GameRoom extends DurableObject<Env> {
     return this.service.join(input);
   }
 
+  status(code: string) {
+    return this.service.status(code);
+  }
+
   session(token: string | null, code: string) {
     return this.service.session(token, code);
   }

@@ -45,15 +45,19 @@ export function Eyebrow({ children, className }: { children: ReactNode; classNam
   return <p className={cn("text-eyebrow font-semibold uppercase text-gold/80", className)}>{children}</p>;
 }
 
-/** Calm "waiting on someone else" line with a soft three-dot pulse. Plain text, no box. */
+/**
+ * Calm "waiting on someone else" line: the bobbing baubles above, the message below on a
+ * single line. Stacked so the text gets the full width, and the size eases down slightly on
+ * narrow phones so even the longest message (~41 characters) fits a 320px screen unwrapped.
+ */
 export function WaitingNote({ children, className }: { children: ReactNode; className?: string }) {
   return (
     <p
       role="status"
-      className={cn("flex h-14 items-center justify-center gap-3 px-5 text-center font-medium text-fg-muted", className)}
+      className={cn("flex min-h-14 flex-col items-center justify-center gap-2 text-center font-medium text-fg-muted", className)}
     >
       <XmasLoader className="shrink-0" />
-      {children}
+      <span className="whitespace-nowrap text-[clamp(0.8125rem,3.9vw,1rem)]">{children}</span>
     </p>
   );
 }

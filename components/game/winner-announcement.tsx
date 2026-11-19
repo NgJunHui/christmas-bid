@@ -31,7 +31,10 @@ function TransferLedger({ transfer, live }: { transfer: TransferView; live: bool
   const { d } = useGame();
   const rows = [
     { id: transfer.fromPlayerId, before: transfer.fromBefore, after: transfer.fromAfter, delta: -transfer.amount },
-    { id: transfer.toPlayerId, before: transfer.toBefore, after: transfer.toAfter, delta: transfer.amount },
+    // Only rooms from before "the winner just spends" have a receiving row.
+    ...(transfer.toPlayerId && transfer.toBefore !== null && transfer.toAfter !== null
+      ? [{ id: transfer.toPlayerId, before: transfer.toBefore, after: transfer.toAfter, delta: transfer.amount }]
+      : []),
   ];
   return (
     <ul className="flex w-full max-w-sm flex-col gap-2 text-left" aria-label="Credit transfer">

@@ -7,7 +7,7 @@ import { useEffect, useRef, useState, type FormEvent } from "react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Field, Input } from "@/components/ui/field";
-import { ApiError, getSession, joinRoom } from "@/lib/client/api";
+import { ApiError, checkRoom, getSession, joinRoom } from "@/lib/client/api";
 import { readRememberedName, rememberName } from "@/lib/client/remembered-name";
 import { LIMITS } from "@/lib/game/constants";
 import { isValidName, NAME_RULE_MESSAGE, normalizeName, sanitizeNameInput } from "@/lib/game/names";
@@ -21,9 +21,30 @@ const slide = {
   transition: { duration: 0.28, ease: [0.16, 1, 0.3, 1] as const },
 };
 
+/** Reasons a PIN can't be joined, as shown under the PIN field. */
+const PIN_PROBLEMS = new Set(["NOT_FOUND", "GAME_STARTED", "ROOM_ENDED", "ROOM_FULL"]);
+
+function pinProblem(error: unknown): string {
+  if (!(error instanceof ApiError)) return "Couldn't check that PIN. Try again.";
+  if (error.code === "NOT_FOUND") return "No game with that PIN. Double-check the digits?";
+  return error.message; // game started / finished / full, rate limited, offline
+}
+
 /**
- * Kahoot-style join: one field per screen. Game PIN first, then a nickname.
- * Invite links (`/join?code=1234`) skip straight to the nickname.
+ * Check a PIN before asking for a nickname: "seated" if this browser already has a seat
+ * in that room, "open" if a new player can join. Throws (ApiError) if the room doesn't
+ * exist or can't take new players.
+ */
+async function checkPin(pin: string): Promise<"seated" | "open"> {
+  if (await getSession(pin).catch(() => null)) return "seated";
+  await checkRoom(pin);
+  return "open";
+}
+
+/**
+ * Kahoot-style join: one field per screen. Game PIN first (checked against the server),
+ * then a nickname. Invite links (`/join?code=1234`) skip straight to the nickname while
+ * the PIN is checked in the background.
  */
 export function JoinRoomForm() {
   const router = useRouter();
@@ -34,6 +55,7 @@ export function JoinRoomForm() {
   const [name, setName] = useState("");
   const [errors, setErrors] = useState<{ code?: string; name?: string }>({});
   const [submitting, setSubmitting] = useState(false);
+  const [checking, setChecking] = useState(false);
   const codeRef = useRef<HTMLInputElement>(null);
   const nameRef = useRef<HTMLInputElement>(null);
   // Until hydrated, keep submit disabled so Enter can't trigger a plain browser GET submit.
@@ -48,25 +70,40 @@ export function JoinRoomForm() {
     (step === "code" ? codeRef : nameRef).current?.focus();
   }, [step]);
 
-  // Already have a seat in this room (e.g. opened an invite link twice)? Go straight back in.
+  // Invite link: already seated (opened it twice)? Go straight back in.
+  // Room gone, started, or full? Back to the PIN step with the reason.
   useEffect(() => {
     if (initialCode.length !== 4) return;
     let cancelled = false;
-    getSession(initialCode)
-      .then((session) => {
-        if (session && !cancelled) router.replace(`/room/${initialCode}`);
-      })
-      .catch(() => {});
+    checkPin(initialCode).then(
+      (result) => {
+        if (!cancelled && result === "seated") router.replace(`/room/${initialCode}`);
+      },
+      (error) => {
+        if (cancelled) return;
+        setErrors({ code: pinProblem(error) });
+        setStep("code");
+      },
+    );
     return () => {
       cancelled = true;
     };
   }, [initialCode, router]);
 
-  const submitCode = (event: FormEvent) => {
+  const submitCode = async (event: FormEvent) => {
     event.preventDefault();
     if (!/^\d{4}$/.test(code)) return setErrors({ code: "Game PINs are 4 digits." });
     setErrors({});
-    setStep("name");
+    setChecking(true);
+    try {
+      const result = await checkPin(code);
+      if (result === "seated") router.replace(`/room/${code}`);
+      else setStep("name");
+    } catch (error) {
+      setErrors({ code: pinProblem(error) });
+    } finally {
+      setChecking(false);
+    }
   };
 
   const submitName = async (event: FormEvent) => {
@@ -84,8 +121,9 @@ export function JoinRoomForm() {
       setSubmitting(false);
       if (!(error instanceof ApiError)) return toast.error("Couldn't join. Try again.");
       if (error.code === "NAME_TAKEN" || error.code === "INVALID_INPUT") setErrors({ name: error.message });
-      else if (error.code === "NOT_FOUND") {
-        setErrors({ code: "No game with that PIN. Double-check the digits?" });
+      else if (PIN_PROBLEMS.has(error.code)) {
+        // The room changed since the PIN was checked (e.g. the game just started).
+        setErrors({ code: pinProblem(error) });
         setStep("code");
       } else toast.error(error.message);
     }
@@ -118,7 +156,7 @@ export function JoinRoomForm() {
               />
             </Field>
             <div className="mt-auto pt-4">
-              <Button type="submit" size="lg" className="w-full" disabled={!ready || code.length !== 4}>
+              <Button type="submit" size="lg" className="w-full" loading={checking} disabled={!ready || code.length !== 4}>
                 Enter <ArrowRight />
               </Button>
             </div>

@@ -1,28 +1,24 @@
 import type { CreditTransaction, Player } from "./types";
 
-export type TransferResult =
+export type SpendResult =
   | { ok: true; players: Player[]; transaction: CreditTransaction }
   | { ok: false; code: "INSUFFICIENT_CREDITS" | "INVALID_INPUT" | "NOT_FOUND"; message: string };
 
 /**
- * Move `amount` integer credits from one player to another. Returns new
- * player objects; the input is not mutated. The caller persists the result
- * in a single write, so the debit and the credit land together or not at all.
+ * The winning bidder spends `amount` integer credits on a gift. The credits leave the
+ * game: nobody receives them (the pitcher isn't paid). Returns new player objects; the
+ * input is not mutated. The caller persists the result in a single write.
  */
-export function transferCredits(
+export function spendCredits(
   players: readonly Player[],
-  input: { id: string; roundId: string; fromPlayerId: string; toPlayerId: string; amount: number; now: number },
-): TransferResult {
+  input: { id: string; roundId: string; playerId: string; amount: number; now: number },
+): SpendResult {
   const { amount } = input;
   if (!Number.isSafeInteger(amount) || amount <= 0) {
-    return { ok: false, code: "INVALID_INPUT", message: "Transfers must be a positive whole number of credits." };
+    return { ok: false, code: "INVALID_INPUT", message: "Spending must be a positive whole number of credits." };
   }
-  if (input.fromPlayerId === input.toPlayerId) {
-    return { ok: false, code: "INVALID_INPUT", message: "A player can't pay themselves." };
-  }
-  const from = players.find((p) => p.id === input.fromPlayerId);
-  const to = players.find((p) => p.id === input.toPlayerId);
-  if (!from || !to) {
+  const from = players.find((p) => p.id === input.playerId);
+  if (!from) {
     return { ok: false, code: "NOT_FOUND", message: "That player isn't in this room." };
   }
   if (from.credits < amount) {
@@ -33,20 +29,18 @@ export function transferCredits(
     id: input.id,
     roundId: input.roundId,
     fromPlayerId: from.id,
-    toPlayerId: to.id,
+    toPlayerId: null,
     amount,
     fromBalanceBefore: from.credits,
     fromBalanceAfter: from.credits - amount,
-    toBalanceBefore: to.credits,
-    toBalanceAfter: to.credits + amount,
+    toBalanceBefore: null,
+    toBalanceAfter: null,
     createdAt: input.now,
   };
 
-  const next = players.map((player) => {
-    if (player.id === from.id) return { ...player, credits: transaction.fromBalanceAfter };
-    if (player.id === to.id) return { ...player, credits: transaction.toBalanceAfter };
-    return player;
-  });
+  const next = players.map((player) =>
+    player.id === from.id ? { ...player, credits: transaction.fromBalanceAfter } : player,
+  );
   return { ok: true, players: next, transaction };
 }
 

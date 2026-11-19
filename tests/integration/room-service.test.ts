@@ -131,6 +131,27 @@ describe("joining", () => {
     expect(state!.players[1]!.credits).toBe(20);
   });
 
+  it("leaving a running game is for good: no session, no rejoining", async () => {
+    const { service, players, connect, send } = await roomWithPlayers(["Host", "Alex", "Jamie"]);
+    const hostSocket = await connect(service, players[0]!.playerId);
+    await send(service, hostSocket, players[0]!.playerId, { type: "GAME_START" });
+    const alex = players[1]!;
+    expect(await service.leave(alex.token, "4821")).toEqual({ ok: true, left: true });
+    expect(await service.session(alex.token, "4821")).toBeNull();
+    const back = await service.join({ code: "4821", displayName: "Alex", token: alex.token });
+    expect(!back.ok && back.error.code).toBe("GAME_STARTED");
+    expect(hostSocket.lastView().players.find((p) => p.id === alex.playerId)!.hasLeft).toBe(true);
+  });
+
+  it("checks a PIN before asking for a nickname", async () => {
+    const { service, players, connect, send } = await roomWithPlayers(["Host", "Alex"]);
+    expect(await service.status("4821")).toEqual({ ok: true, joinable: true });
+    expect(await service.status("9999")).toMatchObject({ ok: false, error: { code: "NOT_FOUND" } });
+    const hostSocket = await connect(service, players[0]!.playerId);
+    await send(service, hostSocket, players[0]!.playerId, { type: "GAME_START" });
+    expect(await service.status("4821")).toMatchObject({ ok: false, error: { code: "GAME_STARTED" } });
+  });
+
   it("rejects wrong codes, forged tokens, and late joiners", async () => {
     const { service, players, connect, send } = await roomWithPlayers(["Host", "Alex"]);
     expect((await service.join({ code: "9999", displayName: "X" })).ok).toBe(false);
@@ -222,10 +243,11 @@ describe("a full round over sockets", () => {
     const state = (await h.service.snapshot())!;
     expect(state.transactions).toHaveLength(1);
     const credits = Object.fromEntries(state.players.map((p) => [p.id, p.credits]));
+    // The winner spends their bid; the pitcher isn't paid.
     expect(credits[a!.playerId]).toBe(9);
-    expect(credits[round.pitcherId]).toBe(31);
+    expect(credits[round.pitcherId]).toBe(20);
     expect(credits[b!.playerId]).toBe(20);
-    expect(Object.values(credits).reduce((x, y) => x + y, 0)).toBe(80);
+    expect(Object.values(credits).reduce((x, y) => x + y, 0)).toBe(80 - 11);
   });
 });
 

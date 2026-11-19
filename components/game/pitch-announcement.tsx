@@ -7,6 +7,7 @@ import { GiftStack, Sparkle } from "@/components/brand/art";
 import { Button } from "@/components/ui/button";
 import { CreditPill } from "./credit-pill";
 import { useGame } from "./game-context";
+import { NAME_HEADLINE_CLASS, NameLines } from "./name-headline";
 import { Eyebrow, Stage, StageActions, StageBody, WaitingNote } from "./stage";
 
 /** Spin briefly before revealing the pitcher, only when the round has just been drawn. */
@@ -34,7 +35,7 @@ export function PitchAnnouncement() {
   const pitcher = d.pitcher!;
   const justDrawn = cause === "GAME_STARTED" || cause === "ROUND_CHANGED";
   const settled = useDrawSpin(pitcher.id, justDrawn);
-  const headline = d.isPitcher ? `You're up, ${pitcher.displayName}!` : `${pitcher.displayName} turn`;
+  const rest = d.isPitcher ? "you're up!" : "is up next";
 
   return (
     <Stage>
@@ -65,26 +66,30 @@ export function PitchAnnouncement() {
 
         <div className="flex flex-col items-center gap-3">
           {d.isPitcher ? null : <CreditPill credits={view.me.credits} />}
-          <h1 className="max-w-[16ch] font-display text-headline text-gold sm:text-[3.25rem] sm:leading-none">
+          <h1 className={NAME_HEADLINE_CLASS}>
             {settled ? (
-              <span aria-hidden>{headline}</span>
+              <NameLines name={pitcher.displayName} rest={rest} />
             ) : (
-              // Spinning while the pitcher is drawn; one line tall so nothing jumps when the name lands.
-              <span aria-hidden className="inline-grid h-[1.04em] place-items-center align-middle sm:h-[1em]">
-                <span className="block size-[0.8em] animate-spin rounded-full border-[0.11em] border-gold/25 border-t-gold" />
-              </span>
+              <>
+                {/* Spinner in the name's place while the pitcher is drawn; the line below keeps its
+                    space (hidden, so it can't give the draw away) so nothing jumps when the name lands. */}
+                <span aria-hidden>
+                  <NameLines
+                    name={<span className="inline-block size-[0.8em] animate-spin rounded-full border-[0.1em] border-gold/25 border-t-gold align-middle" />}
+                    rest={rest}
+                    restHidden
+                  />
+                </span>
+                <span className="sr-only">Drawing the next gift…</span>
+              </>
             )}
-            <span className="sr-only">{settled ? headline : "Drawing the next gift…"}</span>
           </h1>
-          {d.isPitcher ? (
-            <p className="max-w-[36ch] text-lg text-fg-muted">It's time to convince everyone your gift is worth their credits.</p>
-          ) : null}
           {!pitcher.isConnected ? (
             <p className="card flex max-w-sm items-start gap-2.5 rounded-2xl px-4 py-3 text-left text-sm font-medium text-gold">
               <WifiOff className="mt-0.5 size-4 shrink-0" aria-hidden />
               <span>
                 {pitcher.displayName} looks offline.{" "}
-                {d.isHost ? "Wait for them to reconnect, or end the game from the menu." : "Hang tight."}
+                {d.isHost ? "Wait for them to reconnect, or end the game from the leave button (top right)." : "Hang tight."}
               </span>
             </p>
           ) : null}
@@ -93,24 +98,19 @@ export function PitchAnnouncement() {
 
       <StageActions className="sm:mx-auto sm:w-full sm:max-w-sm">
         {d.isHost ? (
-          <>
-            <Button
-              size="lg"
-              loading={starting}
-              disabled={!settled}
-              onClick={async () => {
-                setStarting(true);
-                await act({ type: "BIDDING_START", roundId: round.id });
-                setStarting(false);
-              }}
-            >
-              <Hourglass />
-              Start bidding
-            </Button>
-            {d.isPitcher ? (
-              <p className="text-center text-sm text-fg-muted">You can't bid on your own gift, but you run the clock.</p>
-            ) : null}
-          </>
+          <Button
+            size="lg"
+            loading={starting}
+            disabled={!settled}
+            onClick={async () => {
+              setStarting(true);
+              await act({ type: "BIDDING_START", roundId: round.id });
+              setStarting(false);
+            }}
+          >
+            <Hourglass />
+            Start bidding
+          </Button>
         ) : (
           <WaitingNote>Waiting for the bidding to begin.</WaitingNote>
         )}

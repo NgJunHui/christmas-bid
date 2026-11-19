@@ -46,6 +46,7 @@ export const clientMessageSchema = z.discriminatedUnion("type", [
     amount: z.number().int().min(0).max(1_000_000),
   }),
   z.object({ type: z.literal("BID_WITHDRAW"), requestId, roundId: id, attemptId: id }),
+  z.object({ type: z.literal("BIDDING_END"), requestId, roundId: id, attemptId: id }),
   z.object({ type: z.literal("BIDDING_RESTART"), requestId, roundId: id }),
   z.object({ type: z.literal("WINNER_CONFIRM"), requestId, roundId: id, winnerId: id }),
   z.object({ type: z.literal("NEXT_ROUND"), requestId, roundId: id }),

@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { isBeforeDeadline, resolveBids, upsertBid, validateBidAmount } from "../../lib/game/bidding";
-import { totalCredits, transferCredits } from "../../lib/game/credits";
-import { addPlayer, applyCommand, canTransition, createRoom, removePlayer, settle } from "../../lib/game/engine";
+import { spendCredits, totalCredits } from "../../lib/game/credits";
+import { addPlayer, applyCommand, canTransition, createRoom, leaveGame, removePlayer, settle } from "../../lib/game/engine";
 import { isValidName, normalizeName, sanitizeNameInput } from "../../lib/game/names";
 import { shuffle } from "../../lib/game/order";
 import type { RoomState } from "../../lib/game/types";
@@ -33,12 +33,13 @@ describe("pitching order", () => {
       state = must(state, "p0", { type: "BIDDING_START", roundId: r.id }, clock.ctx());
       state = must(state, bidder, { type: "BID_SUBMIT", roundId: r.id, attemptId: r.attemptId, amount: 1 }, clock.ctx());
       state = closeBidding(state, clock);
+      // Confirming goes straight to the next pitch (no winner screen), and ends the game after the last.
       state = must(state, "p0", { type: "WINNER_CONFIRM", roundId: r.id, winnerId: bidder }, clock.ctx());
-      state = must(state, "p0", { type: "NEXT_ROUND", roundId: r.id }, clock.ctx());
     }
     expect(pitchers).toEqual(order);
     expect(new Set(pitchers).size).toBe(ids.length);
-    expect(state.phase).toBe("AWAITING_END");
+    expect(state.phase).toBe("ENDED");
+    expect(state.endReason).toBe("COMPLETED");
     expect(state.players.every((p) => p.hasPitched)).toBe(true);
   });
 });
@@ -227,17 +228,20 @@ describe("winner confirmation", () => {
     return { ...setup, state: closeBidding(state, setup.clock) };
   }
 
-  it("transfers the bid from the winner to the pitcher, and nothing else", () => {
+  it("the winner spends their bid; nobody else's balance changes, the pitcher's included", () => {
     const { state, r, others, pitcher, clock } = revealed([15, 12]);
     const next = must(state, "p0", { type: "WINNER_CONFIRM", roundId: r.id, winnerId: others[0]! }, clock.ctx());
     const credit = (id: string) => next.players.find((p) => p.id === id)!.credits;
     expect(credit(others[0]!)).toBe(5);
-    expect(credit(pitcher)).toBe(35);
+    expect(credit(pitcher)).toBe(20);
     expect(credit(others[1]!)).toBe(20);
     expect(credit(others[2]!)).toBe(20);
     expect(next.transactions).toHaveLength(1);
-    expect(next.phase).toBe("WINNER_CONFIRMED");
-    expect(totalCredits(next.players)).toBe(80);
+    expect(next.transactions[0]).toMatchObject({ fromPlayerId: others[0], toPlayerId: null, amount: 15 });
+    // No winner screen: straight on to drawing the next pitcher.
+    expect(next.phase).toBe("PITCHING");
+    expect(round(next).number).toBe(r.number + 1);
+    expect(totalCredits(next.players)).toBe(80 - 15);
   });
 
   it("is idempotent: confirming twice transfers once", () => {
@@ -263,17 +267,17 @@ describe("winner confirmation", () => {
     const credit = (id: string) => next.players.find((p) => p.id === id)!.credits;
     expect(credit(others[1]!)).toBe(10);
     expect(credit(others[0]!)).toBe(20);
-    expect(credit(pitcher)).toBe(30);
+    expect(credit(pitcher)).toBe(20);
     const nonTied = applyCommand(state, "p0", { type: "WINNER_CONFIRM", roundId: r.id, winnerId: others[2]! }, clock.ctx());
     expect(!nonTied.ok && nonTied.error.code).toBe("NOT_ELIGIBLE_WINNER");
   });
 
-  it("refuses a transfer that would make a balance negative", () => {
+  it("refuses spending that would make a balance negative", () => {
     const players = [
       { id: "a", displayName: "A", credits: 3, paddle: 1, hasPitched: false, joinedAt: 0, tokenHash: "" },
       { id: "b", displayName: "B", credits: 3, paddle: 2, hasPitched: false, joinedAt: 0, tokenHash: "" },
     ];
-    const result = transferCredits(players, { id: "t", roundId: "r", fromPlayerId: "a", toPlayerId: "b", amount: 4, now: 0 });
+    const result = spendCredits(players, { id: "t", roundId: "r", playerId: "a", amount: 4, now: 0 });
     expect(result).toMatchObject({ ok: false, code: "INSUFFICIENT_CREDITS" });
   });
 });
@@ -303,6 +307,116 @@ describe("no bids and restarts", () => {
     );
     const result = applyCommand(withBid, "p0", { type: "BIDDING_RESTART", roundId: r.id }, clock.ctx());
     expect(!result.ok && result.error.code).toBe("INVALID_PHASE");
+  });
+});
+
+describe("leaving a running game for good", () => {
+  const mustLeave = (state: RoomState, playerId: string, clock: ReturnType<typeof makeCtx>) => {
+    const result = leaveGame(state, playerId, clock.ctx());
+    if (!result.ok || result.duplicate) throw new Error(result.ok ? "Expected a change" : result.error.message);
+    return result;
+  };
+
+  /** A started game whose current pitcher is a guest (the host may be drawn first). */
+  function guestPitching() {
+    const setup = lobby(["Host", "Alex", "Jamie", "Sam"]);
+    let state = must(setup.state, "p0", { type: "GAME_START" }, setup.clock.ctx());
+    if (round(state).pitcherId === "p0") {
+      const r = round(state);
+      const bidder = setup.ids.find((id) => id !== r.pitcherId)!;
+      state = must(state, "p0", { type: "BIDDING_START", roundId: r.id }, setup.clock.ctx());
+      state = must(state, bidder, { type: "BID_SUBMIT", roundId: r.id, attemptId: r.attemptId, amount: 1 }, setup.clock.ctx());
+      state = closeBidding(state, setup.clock);
+      state = must(state, "p0", { type: "WINNER_CONFIRM", roundId: r.id, winnerId: bidder }, setup.clock.ctx());
+    }
+    return { ...setup, state };
+  }
+
+  it("revokes the seat, drops their turn, and keeps the game going", () => {
+    const { state, r, others, clock } = openBidding();
+    const guest = others.find((id) => id !== "p0")!;
+    const { state: next, cause } = mustLeave(state, guest, clock);
+    const leaver = next.players.find((p) => p.id === guest)!;
+    expect(cause).toBe("PLAYER_LEFT");
+    expect(leaver.leftAt).toBe(clock.now);
+    expect(leaver.tokenHash).toBe("");
+    // They hadn't pitched yet, so their round is gone from the order.
+    expect(next.pitchingOrder).not.toContain(guest);
+    expect(next.pitchingOrder).toHaveLength(state.pitchingOrder.length - 1);
+    expect(next.phase).toBe("BIDDING");
+    const bid = applyCommand(next, guest, { type: "BID_SUBMIT", roundId: r.id, attemptId: r.attemptId, amount: 2 }, clock.ctx());
+    expect(!bid.ok && bid.error.code).toBe("UNAUTHORIZED");
+    expect(toClientView(next, "p0", everyone([]), clock.now).players.find((p) => p.id === guest)!.hasLeft).toBe(true);
+  });
+
+  it("skips the round when the pitcher leaves, with no credits moving", () => {
+    const { state: start, ids, clock } = guestPitching();
+    const r = round(start);
+    let state = must(start, "p0", { type: "BIDDING_START", roundId: r.id }, clock.ctx());
+    const bidder = ids.find((id) => id !== r.pitcherId)!;
+    state = must(state, bidder, { type: "BID_SUBMIT", roundId: r.id, attemptId: r.attemptId, amount: 5 }, clock.ctx());
+    const transactions = state.transactions.length;
+
+    const { state: next, cause } = mustLeave(state, r.pitcherId, clock);
+    expect(cause).toBe("ROUND_CHANGED");
+    expect(next.rounds.find((x) => x.id === r.id)!.status).toBe("CANCELLED");
+    expect(next.phase).toBe("PITCHING");
+    expect(round(next).number).toBe(r.number + 1);
+    expect(round(next).pitcherId).not.toBe(r.pitcherId);
+    expect(next.transactions).toHaveLength(transactions);
+  });
+
+  it("re-resolves the bids when a top bidder leaves", () => {
+    const { state, r, others, clock } = openBidding();
+    const leaver = others.find((id) => id !== "p0")!;
+    const stayer = others.find((id) => id !== leaver)!;
+    let next = must(state, leaver, { type: "BID_SUBMIT", roundId: r.id, attemptId: r.attemptId, amount: 9 }, clock.ctx());
+    next = must(next, stayer, { type: "BID_SUBMIT", roundId: r.id, attemptId: r.attemptId, amount: 4 }, clock.ctx());
+    next = closeBidding(next, clock);
+    expect(round(next).outcome!.topBidderIds).toEqual([leaver]);
+
+    next = mustLeave(next, leaver, clock).state;
+    expect(next.phase).toBe("REVEAL");
+    expect(round(next).outcome).toMatchObject({ kind: "SINGLE", highestAmount: 4, topBidderIds: [stayer] });
+    expect(round(next).bids.map((b) => b.playerId)).toEqual([stayer]);
+  });
+
+  it("isn't for the host, who ends the game instead", () => {
+    const { state, clock } = openBidding();
+    const result = leaveGame(state, "p0", clock.ctx());
+    expect(!result.ok && result.error.code).toBe("INVALID_INPUT");
+  });
+});
+
+describe("host ends bidding early", () => {
+  it("closes now with the bids so far, same as the timer running out", () => {
+    const { state, r, others, clock } = openBidding();
+    let next = must(state, others[0]!, { type: "BID_SUBMIT", roundId: r.id, attemptId: r.attemptId, amount: 7 }, clock.ctx());
+    clock.advance(5_000);
+    next = must(next, "p0", { type: "BIDDING_END", roundId: r.id, attemptId: r.attemptId }, clock.ctx());
+    expect(next.phase).toBe("REVEAL");
+    expect(round(next).status).toBe("CLOSED");
+    expect(round(next).timerEndsAt).toBe(clock.now);
+    // The original deadline no longer matters.
+    expect(settle(next, clock.now + 60_000)).toBeNull();
+    const late = applyCommand(next, others[1]!, { type: "BID_SUBMIT", roundId: r.id, attemptId: r.attemptId, amount: 3 }, clock.ctx());
+    expect(!late.ok && late.error.code).toBe("BIDDING_CLOSED");
+  });
+
+  it("goes to no-bids when nobody has bid yet", () => {
+    const { state, r, clock } = openBidding();
+    const next = must(state, "p0", { type: "BIDDING_END", roundId: r.id, attemptId: r.attemptId }, clock.ctx());
+    expect(next.phase).toBe("NO_BIDS");
+  });
+
+  it("is host-only, and only while bidding is open", () => {
+    const { state, r, others, clock } = openBidding();
+    const guest = others.find((id) => id !== "p0")!;
+    const notHost = applyCommand(state, guest, { type: "BIDDING_END", roundId: r.id, attemptId: r.attemptId }, clock.ctx());
+    expect(!notHost.ok && notHost.error.code).toBe("NOT_HOST");
+    const closed = closeBidding(state, clock);
+    const again = applyCommand(closed, "p0", { type: "BIDDING_END", roundId: r.id, attemptId: r.attemptId }, clock.ctx());
+    expect(!again.ok && again.error.code).toBe("BIDDING_CLOSED");
   });
 });
 
@@ -347,19 +461,25 @@ describe("state machine guards", () => {
   });
 });
 
-describe("credit conservation", () => {
-  it("holds across many random games: total constant, no negatives", () => {
+describe("credit accounting", () => {
+  it("across many random games, only winners spend; totals drop by exactly that, never negative", () => {
     for (let seed = 1; seed <= 60; seed++) {
       const random = seeded(seed);
       const size = 2 + Math.floor(random() * 6);
       const credits = 1 + Math.floor(random() * 40);
       const clock = makeCtx(1_000_000, seed);
       const setup = lobby(Array.from({ length: size }, (_, i) => `Player${i}`), credits, clock);
-      const expected = size * credits;
+      const starting = size * credits;
+      let spent = 0;
       let state: RoomState = must(setup.state, "p0", { type: "GAME_START" }, clock.ctx());
 
-      while (state.phase !== "AWAITING_END") {
+      while (state.phase !== "ENDED") {
         const r = round(state);
+        // Credits only go down now, so a game can run dry: the host ends it.
+        if (!state.players.some((p) => p.id !== r.pitcherId && p.credits > 0)) {
+          state = must(state, "p0", { type: "GAME_END" }, clock.ctx());
+          break;
+        }
         state = must(state, "p0", { type: r.attemptNumber === 1 && r.status === "PITCHING" ? "BIDDING_START" : "BIDDING_RESTART", roundId: r.id }, clock.ctx());
         for (const player of state.players) {
           if (player.id === r.pitcherId || player.credits === 0 || random() < 0.3) continue;
@@ -371,12 +491,12 @@ describe("credit conservation", () => {
         const outcome = round(state).outcome!;
         const winnerId = outcome.topBidderIds[Math.floor(random() * outcome.topBidderIds.length)]!;
         state = must(state, "p0", { type: "WINNER_CONFIRM", roundId: r.id, winnerId }, clock.ctx());
-        expect(totalCredits(state.players)).toBe(expected);
+        spent += outcome.highestAmount!;
+        expect(totalCredits(state.players)).toBe(starting - spent);
         expect(state.players.every((p) => p.credits >= 0 && Number.isInteger(p.credits))).toBe(true);
-        state = must(state, "p0", { type: "NEXT_ROUND", roundId: r.id }, clock.ctx());
       }
-      expect(state.rounds).toHaveLength(size);
-      expect(totalCredits(state.players)).toBe(expected);
+      if (state.endReason === "COMPLETED") expect(state.rounds).toHaveLength(size);
+      expect(totalCredits(state.players)).toBe(starting - spent);
     }
   });
 });

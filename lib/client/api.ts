@@ -41,6 +41,14 @@ export function joinRoom(code: string, displayName: string) {
   });
 }
 
+/**
+ * Resolves if a new player can join with this PIN right now; otherwise throws an
+ * ApiError with the reason (NOT_FOUND, GAME_STARTED, ROOM_ENDED, ROOM_FULL, RATE_LIMITED).
+ */
+export function checkRoom(code: string) {
+  return request<{ joinable: true }>(`/api/rooms/${code}`);
+}
+
 /** My seat in this room, or null if this browser hasn't joined it. */
 export async function getSession(code: string): Promise<SessionResponse | null> {
   return (await request<{ session: SessionResponse | null }>(`/api/rooms/${code}/session`)).session;

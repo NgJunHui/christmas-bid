@@ -5,7 +5,7 @@
  */
 import { isBeforeDeadline, resolveBids, upsertBid, validateBidAmount } from "./bidding";
 import { LIMITS, ROOM_TTL_MS } from "./constants";
-import { transferCredits } from "./credits";
+import { spendCredits } from "./credits";
 import { isValidName, NAME_RULE_MESSAGE, nameKey, normalizeName } from "./names";
 import { shuffle } from "./order";
 import type {
@@ -31,14 +31,18 @@ export type EngineResult =
   | { ok: true; state: RoomState; cause: null; duplicate: true }
   | { ok: false; error: GameError };
 
-/** Every legal phase change. Anything else is a bug or a forged command. */
+/**
+ * Every legal phase change. Anything else is a bug or a forged command.
+ * Mid-round → PITCHING / AWAITING_END: the pitcher left for good, so their round is skipped.
+ * REVEAL ↔ TIEBREAKER → NO_BIDS: a top bidder left, so the remaining bids are re-resolved.
+ */
 export const TRANSITIONS: Readonly<Record<Phase, readonly Phase[]>> = {
   LOBBY: ["PITCHING", "ENDED"],
-  PITCHING: ["BIDDING", "ENDED"],
-  BIDDING: ["REVEAL", "TIEBREAKER", "NO_BIDS", "ENDED"],
-  REVEAL: ["WINNER_CONFIRMED", "ENDED"],
-  TIEBREAKER: ["WINNER_CONFIRMED", "ENDED"],
-  NO_BIDS: ["BIDDING", "ENDED"],
+  PITCHING: ["BIDDING", "PITCHING", "AWAITING_END", "ENDED"],
+  BIDDING: ["REVEAL", "TIEBREAKER", "NO_BIDS", "PITCHING", "AWAITING_END", "ENDED"],
+  REVEAL: ["WINNER_CONFIRMED", "TIEBREAKER", "NO_BIDS", "PITCHING", "AWAITING_END", "ENDED"],
+  TIEBREAKER: ["WINNER_CONFIRMED", "REVEAL", "NO_BIDS", "PITCHING", "AWAITING_END", "ENDED"],
+  NO_BIDS: ["BIDDING", "PITCHING", "AWAITING_END", "ENDED"],
   WINNER_CONFIRMED: ["PITCHING", "AWAITING_END", "ENDED"],
   AWAITING_END: ["ENDED"],
   ENDED: [],
@@ -130,20 +134,32 @@ export function createRoom(
   };
 }
 
+/**
+ * Why a *new* player can't join right now (game started, finished, or full), or null if
+ * they can. Shared by addPlayer and the PIN check that runs before asking for a nickname.
+ */
+export function joinBlocker(state: RoomState): GameError | null {
+  if (state.phase === "ENDED") return { code: "ROOM_ENDED", message: "This game has already finished." };
+  if (state.phase !== "LOBBY") {
+    return { code: "GAME_STARTED", message: "This game has already started. Ask the host for the next one!" };
+  }
+  if (state.players.length >= LIMITS.maxPlayers) {
+    return { code: "ROOM_FULL", message: `This room is full (${LIMITS.maxPlayers} players max).` };
+  }
+  return null;
+}
+
 export function addPlayer(
   prev: RoomState,
   input: { id: string; displayName: string; tokenHash: string },
   ctx: Pick<EngineContext, "now">,
 ): EngineResult {
-  if (prev.phase === "ENDED") return fail("ROOM_ENDED", "This game has already finished.");
-  if (prev.phase !== "LOBBY") return fail("GAME_STARTED", "This game has already started. Ask the host for the next one!");
+  const blocked = joinBlocker(prev);
+  if (blocked) return fail(blocked.code, blocked.message);
 
   const displayName = normalizeName(input.displayName);
   if (!isValidName(displayName)) {
     return fail("INVALID_INPUT", NAME_RULE_MESSAGE);
-  }
-  if (prev.players.length >= LIMITS.maxPlayers) {
-    return fail("ROOM_FULL", `This room is full (${LIMITS.maxPlayers} players max).`);
   }
   const key = nameKey(displayName);
   if (prev.players.some((player) => nameKey(player.displayName) === key)) {
@@ -175,6 +191,56 @@ export function removePlayer(prev: RoomState, playerId: string, ctx: Pick<Engine
   return done(touch(state, ctx.now), "PLAYER_LEFT");
 }
 
+/**
+ * A guest leaving a running game, for good. Their session is revoked (so they can't come
+ * back, and their credits stay behind), their turn to pitch is dropped, and the current
+ * round is fixed up:
+ * - they were pitching: their gift leaves with them, so the round is skipped
+ * - they had a bid: it's withdrawn; if they were a top bidder, the bids are re-resolved
+ * Already-confirmed rounds and credit transfers are untouched. The host ends the game instead.
+ */
+export function leaveGame(prev: RoomState, playerId: string, ctx: EngineContext): EngineResult {
+  if (prev.phase === "LOBBY") return fail("INVALID_PHASE", "Leaving the lobby just frees your seat.");
+  if (prev.phase === "ENDED") return noop(prev);
+  if (playerId === prev.hostPlayerId) return fail("INVALID_INPUT", "The host ends the game instead of leaving it.");
+  const existing = findPlayer(prev, playerId);
+  if (!existing) return fail("NOT_FOUND", "You're not in this room.");
+  if (existing.leftAt) return noop(prev);
+
+  const state = structuredClone(prev);
+  const leaver = findPlayer(state, playerId)!;
+  leaver.leftAt = ctx.now;
+  leaver.tokenHash = ""; // revokes the session: no hash ever matches an empty string
+  if (!leaver.hasPitched) state.pitchingOrder = state.pitchingOrder.filter((id) => id !== playerId);
+
+  let cause: StateCause = "PLAYER_LEFT";
+  const round = currentRound(state);
+  if (round && round.status !== "CONFIRMED" && round.status !== "CANCELLED") {
+    if (round.pitcherId === playerId) {
+      round.status = "CANCELLED";
+      round.bids = [];
+      round.outcome = null;
+      round.completedAt = ctx.now;
+      if (state.rounds.length >= state.pitchingOrder.length) {
+        moveTo(state, "AWAITING_END");
+        cause = "AWAITING_END";
+      } else {
+        openRound(state, ctx);
+        cause = "ROUND_CHANGED";
+      }
+    } else if (round.bids.some((bid) => bid.playerId === playerId)) {
+      round.bids = round.bids.filter((bid) => bid.playerId !== playerId);
+      if (round.status === "CLOSED" && round.outcome?.topBidderIds.includes(playerId)) {
+        const outcome = resolveBids(round.bids, round.outcome.closedAt);
+        round.outcome = outcome;
+        const next: Phase = outcome.kind === "NO_BIDS" ? "NO_BIDS" : outcome.kind === "TIE" ? "TIEBREAKER" : "REVEAL";
+        if (next !== state.phase) moveTo(state, next);
+      }
+    }
+  }
+  return done(touch(state, ctx.now), cause);
+}
+
 /* ------------------------------------------------------------------ */
 /* Timer                                                               */
 /* ------------------------------------------------------------------ */
@@ -187,14 +253,23 @@ export function settle(prev: RoomState, now: number): { state: RoomState; cause:
   const round = currentRound(prev);
   if (prev.phase !== "BIDDING" || !round || round.status !== "BIDDING") return null;
   if (isBeforeDeadline(now, round.timerEndsAt)) return null;
+  return { state: closeBidding(prev, now), cause: "BIDDING_ENDED" };
+}
 
+/**
+ * Close the current bidding attempt at `now`: resolve the bids and move to the
+ * outcome phase. Shared by the deadline (settle) and the host ending it early.
+ */
+function closeBidding(prev: RoomState, now: number): RoomState {
   const state = structuredClone(prev);
   const live = currentRound(state)!;
   const outcome = resolveBids(live.bids, now);
   live.status = "CLOSED";
   live.outcome = outcome;
+  // Record when it actually closed (earlier than planned if the host ended it).
+  live.timerEndsAt = Math.min(live.timerEndsAt ?? now, now);
   moveTo(state, outcome.kind === "NO_BIDS" ? "NO_BIDS" : outcome.kind === "TIE" ? "TIEBREAKER" : "REVEAL");
-  return { state: touch(state, now), cause: "BIDDING_ENDED" };
+  return touch(state, now);
 }
 
 /* ------------------------------------------------------------------ */
@@ -204,6 +279,7 @@ export function settle(prev: RoomState, now: number): { state: RoomState; cause:
 const HOST_ONLY: ReadonlySet<GameCommand["type"]> = new Set([
   "GAME_START",
   "BIDDING_START",
+  "BIDDING_END",
   "BIDDING_RESTART",
   "WINNER_CONFIRM",
   "NEXT_ROUND",
@@ -213,6 +289,7 @@ const HOST_ONLY: ReadonlySet<GameCommand["type"]> = new Set([
 export function applyCommand(prev: RoomState, actorId: string, command: GameCommand, ctx: EngineContext): EngineResult {
   const actor = findPlayer(prev, actorId);
   if (!actor) return fail("UNAUTHORIZED", "You're not part of this room.");
+  if (actor.leftAt) return fail("UNAUTHORIZED", "You left this game.");
   if (HOST_ONLY.has(command.type) && actorId !== prev.hostPlayerId) {
     return fail("NOT_HOST", "Only the host can do that.");
   }
@@ -227,6 +304,8 @@ export function applyCommand(prev: RoomState, actorId: string, command: GameComm
       return submitBid(prev, actor, command, ctx);
     case "BID_WITHDRAW":
       return withdrawBid(prev, actor, command, ctx);
+    case "BIDDING_END":
+      return endBidding(prev, command, ctx);
     case "BIDDING_RESTART":
       return restartBidding(prev, command.roundId, ctx);
     case "WINNER_CONFIRM":
@@ -365,6 +444,23 @@ function withdrawBid(
   return done(touch(state, ctx.now), "BID_WITHDRAWN");
 }
 
+/** Host ends bidding now instead of waiting out the countdown. Same outcome as the timer running out. */
+function endBidding(
+  prev: RoomState,
+  command: Extract<GameCommand, { type: "BIDDING_END" }>,
+  ctx: EngineContext,
+): EngineResult {
+  const guarded = guardRound(prev, command.roundId);
+  if (isResult(guarded)) return guarded;
+  if (guarded.attemptId !== command.attemptId) {
+    return fail("STALE_ROUND", "Bidding was restarted, so that round has moved on.");
+  }
+  if (prev.phase !== "BIDDING" || guarded.status !== "BIDDING") {
+    return fail("BIDDING_CLOSED", "Bidding has already closed for this gift.");
+  }
+  return done(closeBidding(prev, ctx.now), "BIDDING_ENDED");
+}
+
 function restartBidding(prev: RoomState, roundId: string, ctx: EngineContext): EngineResult {
   const guarded = guardRound(prev, roundId);
   if (isResult(guarded)) return guarded;
@@ -385,15 +481,16 @@ function restartBidding(prev: RoomState, roundId: string, ctx: EngineContext): E
 }
 
 function confirmWinner(prev: RoomState, roundId: string, winnerId: string, ctx: EngineContext): EngineResult {
-  const guarded = guardRound(prev, roundId);
-  if (isResult(guarded)) return guarded;
-
-  // Idempotent: confirming the same winner again changes nothing and transfers nothing.
-  if (guarded.status === "CONFIRMED") {
-    return guarded.winnerId === winnerId
+  // Idempotent: confirming the same winner again changes nothing and transfers nothing,
+  // even though the game has already moved on to the next round by then.
+  const confirmed = prev.rounds.find((r) => r.id === roundId && r.status === "CONFIRMED");
+  if (confirmed) {
+    return confirmed.winnerId === winnerId
       ? noop(prev)
       : fail("ALREADY_CONFIRMED", "A winner has already been confirmed for this gift.");
   }
+  const guarded = guardRound(prev, roundId);
+  if (isResult(guarded)) return guarded;
   if (prev.phase !== "REVEAL" && prev.phase !== "TIEBREAKER") {
     return fail("INVALID_PHASE", "Wait for bidding to close before confirming a winner.");
   }
@@ -408,11 +505,11 @@ function confirmWinner(prev: RoomState, roundId: string, winnerId: string, ctx: 
 
   const state = structuredClone(prev);
   const round = currentRound(state)!;
-  const transfer = transferCredits(state.players, {
+  // The winner spends their bid on the gift; the credits aren't passed on to the pitcher.
+  const transfer = spendCredits(state.players, {
     id: ctx.newId(),
     roundId: round.id,
-    fromPlayerId: winnerId,
-    toPlayerId: round.pitcherId,
+    playerId: winnerId,
     amount: winningBid.amount,
     now: ctx.now,
   });
@@ -425,8 +522,15 @@ function confirmWinner(prev: RoomState, roundId: string, winnerId: string, ctx: 
   round.winningAmount = winningBid.amount;
   round.transactionId = transfer.transaction.id;
   round.completedAt = ctx.now;
-  moveTo(state, "WINNER_CONFIRMED");
-  return done(touch(state, ctx.now), "WINNER_CONFIRMED");
+  // No winner screen: straight on to drawing the next pitcher, or, after the last gift, the end.
+  if (state.rounds.length >= state.pitchingOrder.length) {
+    state.endReason = "COMPLETED";
+    state.endedAt = ctx.now;
+    moveTo(state, "ENDED");
+    return done(touch(state, ctx.now), "GAME_ENDED");
+  }
+  openRound(state, ctx);
+  return done(touch(state, ctx.now), "ROUND_CHANGED");
 }
 
 function nextRound(prev: RoomState, roundId: string, ctx: EngineContext): EngineResult {

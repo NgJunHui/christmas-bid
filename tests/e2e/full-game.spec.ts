@@ -33,8 +33,8 @@ async function joinAs(seat: Seat, code: string) {
 async function waitForPitch(host: Seat, seats: Seat[]): Promise<Seat> {
   await expect(host.page.getByRole("button", { name: "Start bidding" })).toBeEnabled();
   for (const seat of seats) {
-    // "Alex turn" for everyone else, "You're up, …!" for the pitcher.
-    await expect(seat.page.getByText(/ turn$|You're up/).first()).toBeVisible();
+    // "Alex / is up next" for everyone else, "Alex / you're up!" for the pitcher.
+    await expect(seat.page.getByText(/^(is up next|you're up!)$/).first()).toBeVisible();
   }
   for (const seat of seats) {
     if (await seat.page.getByText("You're up", { exact: false }).first().isVisible()) return seat;
@@ -86,6 +86,7 @@ test("a full Bidmas game", async ({ browser }) => {
   await host.page.getByRole("button", { name: "Start game" }).click();
 
   const scenarios = ["update", "tie", "no-bids", "single"] as const;
+  let spent = 0;
   for (const [index, scenario] of scenarios.entries()) {
     // 5. A pitcher is drawn.
     const pitcher = await waitForPitch(host, seats);
@@ -138,49 +139,33 @@ test("a full Bidmas game", async ({ browser }) => {
     await expect(host.page.getByText("The bids are in!")).toBeVisible({ timeout: REVEAL_TIMEOUT });
     for (const seat of seats) await expect(seat.page.getByText("The bids are in!")).toBeVisible();
 
+    // The host's confirm button reads "End game" on the last gift, "Next bid" before that.
+    const confirmLabel = index === scenarios.length - 1 ? "End game" : "Next bid";
     if (scenario === "tie") {
       // 14–15. Tie: the host refreshes, the tiebreaker survives, and the host picks the winner.
       await expect(host.page.getByText("It's a tie!")).toBeVisible();
       await host.page.reload();
       await expect(host.page.getByText("Choose the tiebreaker winner")).toBeVisible();
-      await expect(host.page.getByRole("button", { name: "Confirm winner" })).toBeDisabled();
+      await expect(host.page.getByRole("button", { name: confirmLabel })).toBeDisabled();
       await host.page.getByRole("radio", { name: new RegExp(winner.name) }).click();
-      await expect(host.page.getByText(`${winner.name} pays ${amount} credit`)).toBeVisible();
-      await host.page.getByRole("button", { name: "Confirm winner" }).click();
+      await host.page.getByRole("button", { name: confirmLabel }).click();
     } else {
-      await expect(host.page.getByText(`${winner.name} has the highest bid!`)).toBeVisible();
+      // Name and phrase are on separate lines, but the heading still reads as one sentence.
+      await expect(host.page.getByRole("heading", { name: `${winner.name} has the highest bid!` })).toBeVisible();
       // 11. Host confirms.
-      await host.page.getByRole("button", { name: "Confirm winner" }).click();
+      await host.page.getByRole("button", { name: confirmLabel }).click();
     }
 
-    // 12/16. Credits transfer correctly and everyone sees the announcement.
-    const before = { winner: credits.get(winner.name)!, pitcher: credits.get(pitcher.name)! };
-    credits.set(winner.name, before.winner - amount);
-    credits.set(pitcher.name, before.pitcher + amount);
-    for (const seat of seats) {
-      await expect(seat.page.getByRole("heading", { name: /takes home the gift!|You won/ })).toBeVisible();
-    }
-    const ledger = host.page.getByLabel("Credit transfer").locator("li");
-    await expect(ledger.filter({ hasText: winner.name })).toHaveText(
-      new RegExp(`${before.winner}${credits.get(winner.name)}−${amount}$`),
-    );
-    await expect(ledger.filter({ hasText: pitcher.name })).toHaveText(
-      new RegExp(`${before.pitcher}${credits.get(pitcher.name)}\\+${amount}$`),
-    );
-
-    // 13. Next round (or wrap up after the last pitch).
-    await host.page.getByRole("button", { name: index === scenarios.length - 1 ? "Wrap up" : "Next round" }).click();
+    // 12/16. On confirm the winner spends their bid (the pitcher isn't paid). There's no winner
+    // screen: the next round's pitch screen checks everyone's new balance at the top of the loop.
+    credits.set(winner.name, credits.get(winner.name)! - amount);
+    spent += amount;
   }
 
-  // 19–20. Everyone has pitched; the host ends the game.
-  await expect(host.page.getByText("That's a wrap!")).toBeVisible();
-  await expect(host.page.getByRole("button", { name: "Next round" })).toHaveCount(0);
-  await host.page.getByRole("button", { name: "End game" }).click();
-
-  // 21. Everyone lands on the thank-you page. (Balances were verified round by round above.)
+  // 19–21. The last confirm ("End game") finishes the game; everyone lands on the thank-you page.
   for (const seat of seats) {
     await expect(seat.page).toHaveURL(new RegExp(`/room/${code}/results$`));
     await expect(seat.page.getByRole("heading", { name: "Thank you!" })).toBeVisible();
   }
-  expect([...credits.values()].reduce((a, b) => a + b, 0)).toBe(80);
+  expect([...credits.values()].reduce((a, b) => a + b, 0)).toBe(80 - spent);
 });

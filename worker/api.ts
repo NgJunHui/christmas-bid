@@ -3,6 +3,7 @@
  * the right Durable Object, and translate its result into a response.
  *
  *   POST /api/rooms                 create a room (caller becomes host)
+ *   GET  /api/rooms/:code           can a new player join with this PIN? (checked before the nickname)
  *   POST /api/rooms/:code/join      join, or rejoin with an existing session
  *   GET  /api/rooms/:code/session   who am I in this room?
  *   POST /api/rooms/:code/leave     leave the lobby (host: close the room)
@@ -160,6 +161,19 @@ async function joinRoom(request: Request, env: Env, url: URL, code: string): Pro
   );
 }
 
+/**
+ * "Is there a game with this PIN I can join?" 200 if so; otherwise the reason
+ * (NOT_FOUND, GAME_STARTED, ROOM_ENDED, ROOM_FULL). Goes through the same rate-limited
+ * registry lookup as joining, so it can't be used to scan PINs any faster.
+ */
+async function roomStatus(request: Request, env: Env, code: string): Promise<Response> {
+  const lookup = await registryStub(env).lookup(code, clientIp(request));
+  if (!lookup.ok) return error(lookup.error.code, lookup.error.message);
+  const result = await gameRoomStub(env, lookup.roomId).status(code);
+  if (!result.ok) return error(result.error.code, result.error.message);
+  return json({ joinable: true });
+}
+
 /** "Do I have a seat here?" Having none is a normal answer, so it's a 200 with `session: null`. */
 async function getSession(request: Request, env: Env, url: URL, code: string): Promise<Response> {
   const token = readCookie(request, cookieName(code));
@@ -221,6 +235,7 @@ export async function handleApi(request: Request, env: Env, url: URL): Promise<R
     }
     if (!roomCodeSchema.safeParse(code).success || extra.length > 0) return error("NOT_FOUND", "Not found.");
 
+    if (action === undefined && method === "GET") return await roomStatus(request, env, code);
     if (action === "join" && method === "POST") return await joinRoom(request, env, url, code);
     if (action === "session" && method === "GET") return await getSession(request, env, url, code);
     if (action === "leave" && method === "POST") return await leaveRoom(request, env, url, code);

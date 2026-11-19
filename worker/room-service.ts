@@ -15,6 +15,8 @@ import {
   createRoom,
   currentRound,
   hasProcessed,
+  joinBlocker,
+  leaveGame,
   recordRequest,
   removePlayer,
   settle,
@@ -149,7 +151,8 @@ export class RoomService {
     const parsed = parseToken(token);
     if (!parsed || parsed.roomId !== state.id) return null;
     const player = state.players.find((p) => p.id === parsed.playerId);
-    if (!player) return null;
+    // Left for good: the seat is gone, whatever token they still hold.
+    if (!player || player.leftAt) return null;
     return safeEqual(await hashSecret(parsed.secret), player.tokenHash) ? player.id : null;
   }
 
@@ -206,6 +209,17 @@ export class RoomService {
     });
   }
 
+  /**
+   * "Can a new player join with this PIN right now?" Read-only, no session needed.
+   * Lets the join form check the PIN before asking for a nickname.
+   */
+  async status(code: string): Promise<Outcome<{ joinable: true }>> {
+    const state = await this.current();
+    if (!state || state.code !== code) return fail("NOT_FOUND", "We couldn't find a room with that code.");
+    const blocked = joinBlocker(state);
+    return blocked ? { ok: false, error: blocked } : { ok: true, joinable: true };
+  }
+
   async session(token: string | null, code: string): Promise<SessionResponse | null> {
     const state = await this.current();
     if (!state || state.code !== code) return null;
@@ -226,23 +240,31 @@ export class RoomService {
   }
 
   /**
-   * Leaving the lobby frees a guest's seat; the host leaving closes the room.
-   * Once the game has started, seats are kept so people can come back.
+   * Leaving is for good. In the lobby a guest's seat is freed; mid-game a guest's session
+   * is revoked so they can't come back (their credits stay behind, their turn is dropped).
+   * The host leaving closes the room (lobby) or ends the game for everyone.
    */
   async leave(token: string | null, code: string): Promise<Outcome<{ left: boolean }>> {
     return this.exclusive(async () => {
-      const state = await this.current();
-      if (!state || state.code !== code) return fail("NOT_FOUND", "We couldn't find that room.");
-      const playerId = await this.verify(state, token);
+      const current = await this.current();
+      if (!current || current.code !== code) return fail("NOT_FOUND", "We couldn't find that room.");
+      const playerId = await this.verify(current, token);
       if (!playerId) return fail("UNAUTHORIZED", "You're not in this room.");
-      if (state.phase !== "LOBBY") return { ok: true, left: false };
+      if (current.phase === "ENDED") return { ok: true, left: true };
 
+      // Finalize an expired countdown first, so the leave applies to the right phase.
+      const settled = settle(current, this.now());
+      const state = settled ? settled.state : current;
       const result =
         playerId === state.hostPlayerId
           ? applyCommand(state, playerId, { type: "GAME_END" }, this.context())
-          : removePlayer(state, playerId, { now: this.now() });
-      if (!result.ok) return { ok: false, error: result.error };
-      if (result.duplicate) return { ok: true, left: true };
+          : state.phase === "LOBBY"
+            ? removePlayer(state, playerId, { now: this.now() })
+            : leaveGame(state, playerId, this.context());
+      if (!result.ok || result.duplicate) {
+        if (settled) await this.commit(settled.state, settled.cause);
+        return result.ok ? { ok: true, left: true } : { ok: false, error: result.error };
+      }
       await this.commit(result.state, result.cause);
       for (const connection of this.hub.list()) {
         if (connection.playerId === playerId) connection.socket.close(CLOSE_CODES.leftRoom, "Left the room");

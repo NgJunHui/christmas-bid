@@ -95,6 +95,7 @@ export function toClientView(
       isHost: player.id === state.hostPlayerId,
       isConnected: connectedIds.has(player.id),
       hasPitched: player.hasPitched,
+      hasLeft: Boolean(player.leftAt),
     })),
     round: round ? toRoundView(state, round) : null,
     history: state.rounds.map((r) => ({

@@ -6,10 +6,9 @@ import { Button } from "@/components/ui/button";
 import { LIMITS } from "@/lib/game/constants";
 import type { PlayerView } from "@/lib/game/types";
 import { cn } from "@/lib/utils";
-import { XmasLoader } from "@/components/brand/xmas-loader";
 import { useGame } from "./game-context";
 import { RoomCodeDisplay } from "./room-code-display";
-import { Stage, StageActions, StageBody } from "./stage";
+import { Stage, StageActions, StageBody, WaitingNote } from "./stage";
 
 /**
  * Who's here, and nothing more: names that pop in as they join.
@@ -19,10 +18,8 @@ function PlayerChips({ players, meId, waitingFor }: { players: PlayerView[]; meI
   const count = players.length;
   return (
     <section className="flex w-full flex-col items-center gap-4" aria-labelledby="players-heading">
-      <p className="flex items-center justify-center gap-2.5 text-sm font-medium text-fg-muted" role="status">
-        <XmasLoader />
-        {waitingFor}
-      </p>
+      {/* Same one-line waiting message as every other screen. */}
+      <WaitingNote>{waitingFor}</WaitingNote>
       <h2 id="players-heading" className="text-eyebrow font-semibold uppercase text-gold/80">
         <span className="tabular">{count}</span> {count === 1 ? "Player" : "Players"}
       </h2>

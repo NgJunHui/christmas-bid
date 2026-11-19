@@ -29,8 +29,13 @@ export interface Player {
   /** True once this player's pitching round has begun. */
   hasPitched: boolean;
   joinedAt: number;
-  /** SHA-256 (base64url) of the player's session secret. */
+  /** SHA-256 (base64url) of the player's session secret. Emptied when they leave for good. */
   tokenHash: string;
+  /**
+   * When they left a running game, for good: the session is revoked, so they can't come
+   * back (and their credits stay behind). Kept in `players` so past rounds still have names.
+   */
+  leftAt?: number | null;
 }
 
 export interface Bid {
@@ -76,12 +81,16 @@ export interface CreditTransaction {
   id: string;
   roundId: string;
   fromPlayerId: string;
-  toPlayerId: string;
+  /**
+   * Who received the credits. null: the winner spent them and nobody receives anything
+   * (the pitcher isn't paid). Rooms from before that rule paid the pitcher.
+   */
+  toPlayerId: string | null;
   amount: number;
   fromBalanceBefore: number;
   fromBalanceAfter: number;
-  toBalanceBefore: number;
-  toBalanceAfter: number;
+  toBalanceBefore: number | null;
+  toBalanceAfter: number | null;
   createdAt: number;
 }
 
@@ -118,6 +127,8 @@ export type GameCommand =
   | { type: "BIDDING_START"; roundId: string }
   | { type: "BID_SUBMIT"; roundId: string; attemptId: string; amount: number }
   | { type: "BID_WITHDRAW"; roundId: string; attemptId: string }
+  /** Host closes bidding early, before the countdown runs out. */
+  | { type: "BIDDING_END"; roundId: string; attemptId: string }
   | { type: "BIDDING_RESTART"; roundId: string }
   | { type: "WINNER_CONFIRM"; roundId: string; winnerId: string }
   | { type: "NEXT_ROUND"; roundId: string }
@@ -186,6 +197,8 @@ export interface PlayerView {
   isHost: boolean;
   isConnected: boolean;
   hasPitched: boolean;
+  /** Left the game for good: no longer playing, shown only where past rounds need the name. */
+  hasLeft: boolean;
 }
 
 export interface RevealedBid {
@@ -195,12 +208,13 @@ export interface RevealedBid {
 
 export interface TransferView {
   fromPlayerId: string;
-  toPlayerId: string;
+  /** null when the credits were spent and nobody received them. */
+  toPlayerId: string | null;
   amount: number;
   fromBefore: number;
   fromAfter: number;
-  toBefore: number;
-  toAfter: number;
+  toBefore: number | null;
+  toAfter: number | null;
 }
 
 export interface RoundView {

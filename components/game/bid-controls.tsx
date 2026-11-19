@@ -90,7 +90,7 @@ export function BidInput({ draft }: { draft: BidDraft }) {
   const disabled = draft.closed || draft.busy;
   return (
     <div className="card flex w-full flex-col gap-3 rounded-[2rem] px-4 py-5 short:gap-1.5 short:py-3 sm:px-6">
-      <p className="text-center font-medium text-fg short:hidden">How much would you like to bid?</p>
+      <p className="text-center text-sm font-medium text-fg-muted short:hidden">How much would you like to bid?</p>
       <div className="flex items-center gap-3">
         <StepButton label="One credit less" onClick={() => draft.set(draft.amount - 1)} disabled={disabled || draft.amount <= 1}>
           <Minus />
@@ -114,8 +114,9 @@ export function BidInput({ draft }: { draft: BidDraft }) {
             aria-invalid={draft.overBalance}
             aria-describedby="bid-help"
             className={cn(
-              "tabular w-full bg-transparent text-center text-[3.5rem] font-bold leading-none tracking-[-0.03em] outline-none disabled:opacity-60",
-              draft.overBalance ? "text-ember" : "text-fg",
+              // The bid is the one big number on this screen, in gold.
+              "tabular w-full bg-transparent text-center text-[4.25rem] font-bold leading-none tracking-[-0.03em] outline-none disabled:opacity-60 short:text-[3.5rem] sm:text-[4.75rem]",
+              draft.overBalance ? "text-ember" : "text-gold",
             )}
           />
           <span className="text-sm font-medium text-fg-muted">credits</span>
@@ -138,14 +139,15 @@ export function BidInput({ draft }: { draft: BidDraft }) {
           disabled={disabled}
         />
       ) : null}
-      <div id="bid-help" className="flex min-h-7 flex-wrap items-center justify-between gap-2 text-sm">
+      <div id="bid-help" className="flex min-h-7 flex-wrap items-center justify-center gap-x-3 gap-y-2 text-sm">
         {draft.overBalance ? (
           <span className="font-medium text-ember" role="alert">
             You only have {draft.credits} credits.
           </span>
         ) : (
           <span className="text-fg-muted">
-            Available: <strong className="tabular font-semibold text-gold">{draft.credits}</strong> credits
+            <strong className="tabular font-semibold text-fg">{draft.credits}</strong>{" "}
+            {draft.credits === 1 ? "credit" : "credits"} left
           </span>
         )}
         {draft.placed ? (

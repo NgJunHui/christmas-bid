@@ -13,8 +13,7 @@ import { BiddingStage } from "./bidding-stage";
 import { GameProvider, useGame, type GameContextValue } from "./game-context";
 import { NoBidsState } from "./no-bids-state";
 import { PitchAnnouncement } from "./pitch-announcement";
-import { PlayerList } from "./player-list";
-import { RoomMenu } from "./room-menu";
+import { LeaveGameButton } from "./room-menu";
 import { RoomGone, RoomLoading } from "./room-states";
 import { RoomLobby } from "./room-lobby";
 import { WinnerAnnouncement } from "./winner-announcement";
@@ -27,7 +26,10 @@ const PHASE_VIEW: Record<Exclude<Phase, "ENDED">, () => ReactNode> = {
   REVEAL: () => <BidReveal />,
   TIEBREAKER: () => <BidReveal />,
   NO_BIDS: () => <NoBidsState />,
+  // Legacy: confirming a winner now goes straight to the next pitch (or the end), so new games
+  // never land here. Kept so a room saved mid-round before that change still renders.
   WINNER_CONFIRMED: () => <WinnerAnnouncement />,
+  // Reached only if the last pitcher leaves for good; otherwise the final confirm ends the game.
   AWAITING_END: () => <WrapUp />,
 };
 
@@ -60,22 +62,6 @@ function StatusPill() {
         </motion.p>
       ) : null}
     </AnimatePresence>
-  );
-}
-
-function Ledger() {
-  const { view, d } = useGame();
-  return (
-    <aside className="hidden lg:block" aria-label="Players and credits">
-      <div className="sticky top-6 flex flex-col gap-3 py-10">
-        <div className="flex items-baseline justify-between px-1">
-          <h2 className="font-display text-title text-gold">Players</h2>
-          <span className="text-sm text-fg-muted">credits</span>
-        </div>
-        <PlayerList players={view.players} meId={view.me.id} pitcherId={d.round?.pitcherId} mode="ledger" />
-        <p className="px-1 text-sm italic text-fg-faint">Balances change only when the host confirms a winner.</p>
-      </div>
-    </aside>
   );
 }
 
@@ -113,41 +99,40 @@ export function RoomScreen({ code }: { code: string }) {
 
   const round = value.d.round;
   const stageKey = `${phase === "TIEBREAKER" ? "REVEAL" : phase}:${round?.id ?? ""}:${round?.attemptId ?? ""}`;
-  const showLedger = phase !== "LOBBY";
 
   return (
     <GameProvider value={value}>
-      {/* Full-screen app shell: no nav bar. The stage scrolls; a tiny room footer stays at the bottom. */}
+      {/*
+        Full-screen app shell: no nav bar. One centred, phone-width column at every screen size,
+        so desktop looks exactly like mobile. The leave button is pinned to the far right of the window.
+      */}
       <div className="relative flex h-dvh flex-col">
         <div className="pointer-events-none absolute inset-x-0 top-0 z-30 flex items-start justify-between gap-3 px-4 pt-[max(1rem,env(safe-area-inset-top))]">
           <span />
           <StatusPill />
           <span className="pointer-events-auto">
-            <RoomMenu />
+            <LeaveGameButton />
           </span>
         </div>
 
         <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain">
-          <div
-            className={cn(
-              "mx-auto grid min-h-full w-full max-w-6xl px-5 pt-16 short:pt-14 lg:px-8",
-              showLedger && "lg:grid-cols-[minmax(0,1fr)_340px] lg:gap-14",
-            )}
-          >
-            <main className={cn("flex min-w-0 flex-col", showLedger && "mx-auto w-full max-w-xl lg:max-w-2xl")}>
-              <AnimatePresence mode="wait" initial={false}>
-                <motion.div key={stageKey} className="flex flex-1 flex-col">
-                  {PHASE_VIEW[phase]()}
-                </motion.div>
-              </AnimatePresence>
-            </main>
-            {showLedger ? <Ledger /> : null}
-          </div>
+          <main className="mx-auto flex min-h-full w-full max-w-md flex-col px-5 pt-16 short:pt-14">
+            <AnimatePresence mode="wait" initial={false}>
+              <motion.div key={stageKey} className="flex flex-1 flex-col">
+                {PHASE_VIEW[phase]()}
+              </motion.div>
+            </AnimatePresence>
+          </main>
         </div>
 
-        <footer className="shrink-0 pb-[max(0.5rem,env(safe-area-inset-bottom))] pt-1 text-center text-xs text-fg-faint">
-          Room <span className="tabular font-semibold tracking-[0.12em] text-fg-muted">{code}</span>
-        </footer>
+        {/* "Room 1234" only in the lobby; once the game starts it's just a safe-area spacer. */}
+        {phase === "LOBBY" ? (
+          <footer className="shrink-0 pb-[max(0.5rem,env(safe-area-inset-bottom))] pt-1 text-center text-xs text-fg-faint">
+            Room <span className="tabular font-semibold tracking-[0.12em] text-fg-muted">{code}</span>
+          </footer>
+        ) : (
+          <div aria-hidden className="shrink-0 pb-[env(safe-area-inset-bottom)]" />
+        )}
       </div>
     </GameProvider>
   );
