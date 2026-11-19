@@ -187,6 +187,12 @@
   will-change: transform;
 }
 
+/* Home snow panel: decorative snowflakes bob and turn slowly (their resting angle is set via `rotate`). */
+@keyframes flake-float {
+  0%, 100% { transform: translateY(0) rotate(0deg); }
+  50% { transform: translateY(-8px) rotate(14deg); }
+}
+
 /* Home hero: Santa drops gently into the snow on first paint. Decelerates, no bounce. */
 @keyframes santa-settle {
   from { opacity: 0; transform: translateY(-14px) scale(0.97); }

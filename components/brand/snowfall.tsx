@@ -2,14 +2,16 @@
  * Ambient falling snow behind every screen. Pure CSS (transform-only),
  * positions are deterministic so server and client markup match.
  * Under reduced motion the flakes simply rest in place.
+ * Pass a className (e.g. "absolute z-10") to confine it to one box, like the home hero.
  */
+import { cn } from "@/lib/utils";
 
 function rand(seed: number): number {
   const x = Math.sin(seed * 9301 + 49297) * 233280;
   return x - Math.floor(x);
 }
 
-export function Snowfall({ count = 26 }: { count?: number }) {
+export function Snowfall({ count = 26, className }: { count?: number; className?: string }) {
   const flakes = Array.from({ length: count }, (_, i) => {
     const size = 3 + rand(i + 1) * 9; // 3–12px, the large ones read as soft bokeh
     const duration = 11 + rand(i + 101) * 14;
@@ -25,7 +27,7 @@ export function Snowfall({ count = 26 }: { count?: number }) {
   });
 
   return (
-    <div className="pointer-events-none fixed inset-0 z-0 overflow-hidden" aria-hidden>
+    <div className={cn("pointer-events-none fixed inset-0 z-0 overflow-hidden", className)} aria-hidden>
       {flakes.map((flake, i) => (
         <span
           key={i}

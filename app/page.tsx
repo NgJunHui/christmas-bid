@@ -1,7 +1,10 @@
 import { ArrowRight, Snowflake } from "lucide-react";
 import Link from "next/link";
-import { Logo, SnowHill, SnowyPines } from "@/components/brand/art";
+import type { CSSProperties } from "react";
+import { Logo, SnowHill, SnowyPines, Sparkle } from "@/components/brand/art";
+import { Snowfall } from "@/components/brand/snowfall";
 import { Button } from "@/components/ui/button";
+import { cn } from "@/lib/utils";
 
 /**
  * Hero Santa, pre-sized from the 2500px source with sharp into public/hero
@@ -9,7 +12,8 @@ import { Button } from "@/components/ui/button";
  */
 const SANTA_WIDTHS = [480, 800, 1200];
 const SANTA_SIZES = "(min-width: 1024px) min(34rem, 38vw), min(82vw, 30rem)";
-const santaSrcSet = (ext: "avif" | "webp") => SANTA_WIDTHS.map((w) => `/hero/santa-${w}.${ext} ${w}w`).join(", ");
+const santaSrcSet = (ext: "avif" | "webp") =>
+  SANTA_WIDTHS.map((w) => `/hero/santa-${w}.${ext} ${w}w`).join(", ");
 
 /** Vivid evergreen with soft bokeh, like a lit window on a snowy night. */
 const HERO_BACKGROUND = [
@@ -22,6 +26,47 @@ const HERO_BACKGROUND = [
   "radial-gradient(110% 80% at 50% 30%, var(--color-evergreen-light) 0%, var(--color-evergreen) 45%, var(--color-evergreen-deep) 100%)",
 ].join(", ");
 
+/**
+ * Cute snowflakes and gold sparkles that float gently around the edges of the snow panel.
+ * Phones get the four corner ones (kept clear of the centred copy); desktop gets the full scatter.
+ */
+const PANEL_DECOR: { kind: "flake" | "sparkle"; className: string; rotate: string; duration: string; delay: string }[] = [
+  { kind: "flake", className: "left-[4%] top-[26%] size-5 text-evergreen/30 lg:left-[9%] lg:top-[12%] lg:size-11", rotate: "-12deg", duration: "7s", delay: "0s" },
+  { kind: "flake", className: "right-[5%] top-[34%] size-4 text-evergreen/25 lg:right-[11%] lg:top-[20%] lg:size-7", rotate: "18deg", duration: "8.5s", delay: "-2s" },
+  { kind: "sparkle", className: "left-[8%] bottom-[14%] size-4 text-gold-deep/70 lg:left-[18%] lg:bottom-[20%] lg:size-6", rotate: "0deg", duration: "6s", delay: "-1s" },
+  { kind: "flake", className: "right-[4%] bottom-[22%] size-6 text-evergreen/20 lg:right-[8%] lg:bottom-[11%] lg:size-14", rotate: "8deg", duration: "9s", delay: "-4s" },
+  { kind: "flake", className: "hidden lg:block left-[44%] top-[7%] size-6 text-evergreen/20", rotate: "24deg", duration: "7.5s", delay: "-3s" },
+  { kind: "sparkle", className: "hidden lg:block right-[22%] top-[9%] size-5 text-gold-deep/60", rotate: "0deg", duration: "5.5s", delay: "-2.5s" },
+  { kind: "flake", className: "hidden lg:block left-[6%] top-[54%] size-6 text-evergreen/25", rotate: "-30deg", duration: "8s", delay: "-5s" },
+  { kind: "flake", className: "hidden lg:block right-[6%] top-[50%] size-8 text-evergreen/15", rotate: "12deg", duration: "10s", delay: "-1.5s" },
+  { kind: "flake", className: "hidden lg:block left-[30%] bottom-[6%] size-5 text-evergreen/25", rotate: "-6deg", duration: "6.5s", delay: "-3.5s" },
+  { kind: "sparkle", className: "hidden lg:block right-[30%] bottom-[7%] size-4 text-gold-deep/60", rotate: "0deg", duration: "6s", delay: "-4s" },
+];
+
+function SnowPanelDecor() {
+  return (
+    <div aria-hidden className="pointer-events-none absolute inset-0 overflow-hidden">
+      {/* Soft colour washes: warm candlelight bottom-right, mint bottom-left; desktop adds mint along the hero edge. */}
+      <div className="absolute inset-0 bg-[radial-gradient(70%_55%_at_100%_100%,oklch(92.5%_0.05_88/0.9)_0%,transparent_70%),radial-gradient(60%_45%_at_0%_100%,oklch(93%_0.04_150/0.85)_0%,transparent_70%)]" />
+      <div className="absolute inset-0 hidden bg-[radial-gradient(55%_60%_at_0%_0%,oklch(93%_0.045_150/0.9)_0%,transparent_70%)] lg:block" />
+      {PANEL_DECOR.map((item, i) => {
+        const Icon = item.kind === "flake" ? Snowflake : Sparkle;
+        return (
+          <Icon
+            key={i}
+            className={cn(
+              "absolute motion-safe:animate-[flake-float_var(--float-d)_ease-in-out_infinite]",
+              item.className,
+            )}
+            strokeWidth={item.kind === "flake" ? 2.2 : undefined}
+            style={{ rotate: item.rotate, "--float-d": item.duration, animationDelay: item.delay } as CSSProperties}
+          />
+        );
+      })}
+    </div>
+  );
+}
+
 export default function WelcomePage() {
   return (
     <main className="flex min-h-dvh flex-col bg-snow lg:grid lg:grid-cols-2">
@@ -33,11 +78,21 @@ export default function WelcomePage() {
         <div className="absolute left-5 top-[max(1.25rem,env(safe-area-inset-top))] z-20 pl-2 pt-3">
           <Logo className="text-snow" />
         </div>
-        <Snowflake className="absolute -right-3 -top-3 size-28 rotate-12 text-snow sm:size-32" strokeWidth={2.4} aria-hidden />
+        <Snowflake
+          className="absolute -right-3 -top-3 size-28 rotate-12 text-snow sm:size-32"
+          strokeWidth={2.4}
+          aria-hidden
+        />
+
+        {/* Falling snow, same as every other page: over the sky and pines, behind Santa, the logo and the drift. */}
+        <Snowfall count={22} className="absolute z-10" />
 
         {/* Pines peek out on both sides of Santa, like a little clearing in the woods. */}
         <SnowyPines className="absolute bottom-12 -left-3 w-36 sm:w-44 lg:bottom-20 lg:w-60" />
-        <SnowyPines className="absolute bottom-14 -right-2 w-32 sm:w-40 lg:bottom-24 lg:w-56" flip />
+        <SnowyPines
+          className="absolute bottom-14 -right-2 w-32 sm:w-40 lg:bottom-24 lg:w-56"
+          flip
+        />
 
         {/*
           Santa sits *on* the snow, in front of the drift, so his boots stay visible.
@@ -45,7 +100,10 @@ export default function WelcomePage() {
         */}
         <div
           className="absolute bottom-5 left-1/2 z-30 -translate-x-1/2 [--santa-max:30rem] sm:bottom-6 lg:bottom-9 lg:[--santa-max:min(34rem,38vw)]"
-          style={{ width: "min(82vw, var(--santa-max), calc((var(--hero-h) - 5.5rem) * 1.084))" }}
+          style={{
+            width:
+              "min(82vw, var(--santa-max), calc((var(--hero-h) - 5.5rem) * 1.084))",
+          }}
         >
           {/* Contact shadow pressed into the snow. */}
           <div
@@ -53,7 +111,11 @@ export default function WelcomePage() {
             className="absolute inset-x-[4%] -bottom-[3%] h-[9%] bg-[radial-gradient(closest-side,oklch(68%_0.045_150/0.6),transparent)]"
           />
           <picture>
-            <source type="image/avif" srcSet={santaSrcSet("avif")} sizes={SANTA_SIZES} />
+            <source
+              type="image/avif"
+              srcSet={santaSrcSet("avif")}
+              sizes={SANTA_SIZES}
+            />
             <img
               src="/hero/santa-800.webp"
               srcSet={santaSrcSet("webp")}
@@ -74,15 +136,12 @@ export default function WelcomePage() {
       <section className="relative z-10 flex flex-1 flex-col items-center justify-center gap-6 bg-snow px-6 pb-[max(1.75rem,env(safe-area-inset-bottom))] pt-4 text-center short:gap-4 lg:px-12">
         {/* The snowy ground rises out of this section into the hero, so snow and page are one surface. */}
         <SnowHill className="pointer-events-none absolute inset-x-0 -top-16 h-[4.1rem] w-full sm:-top-20 sm:h-[5.1rem] lg:hidden" />
-        <div className="flex flex-col items-center gap-2.5">
-          <h1 className="max-w-[16ch] text-balance font-display text-[2.25rem] font-bold leading-[1.05] text-ink-green short:text-[2rem] sm:text-[3rem] lg:text-[3.75rem]">
-            Unwrap the magic
-          </h1>
-          <p className="max-w-[30ch] text-[0.9375rem] text-ink-green-soft sm:text-lg">
-            Pitch your gift, bid in secret, take something home.
-          </p>
-        </div>
-        <div className="flex w-full flex-col items-center gap-3">
+        <SnowPanelDecor />
+        {/* `relative` so the copy and buttons paint above the decor layer. */}
+        <h1 className="relative max-w-[16ch] text-balance font-display text-[2.25rem] font-bold leading-[1.05] text-ink-green short:text-[2rem] sm:text-[3rem] lg:text-[3.75rem]">
+          Unwrap the Magic of Christmas!
+        </h1>
+        <div className="relative flex w-full flex-col items-center gap-3">
           <Button asChild size="lg" variant="evergreen">
             <Link href="/join">
               Join a room <ArrowRight />

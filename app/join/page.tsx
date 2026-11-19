@@ -7,7 +7,11 @@ export const metadata: Metadata = { title: "Join a game" };
 
 export default function JoinPage() {
   return (
-    <FormShell eyebrow="Got a code?" title="Join the game" subtitle="Enter the Game PIN from the host's screen.">
+    <FormShell
+      eyebrow="Got a code?"
+      title="Join the game"
+      subtitle="Enter the Game PIN."
+    >
       <Suspense>
         <JoinRoomForm />
       </Suspense>
