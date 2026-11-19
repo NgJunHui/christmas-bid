@@ -24,10 +24,10 @@ export function ThankYou() {
         animate={{ opacity: 1, y: 0, scale: 1 }}
         transition={{ duration: 0.6, ease: [0.16, 1, 0.3, 1] }}
       >
-        {/* Soft gold spotlight behind Santa, like the gift on the pitch screen. */}
+        {/* Warm lamp light behind Santa, the same breathing glow as the home page. */}
         <div
           aria-hidden
-          className="absolute -inset-8 rounded-full bg-[radial-gradient(circle,oklch(85%_0.13_87/0.28)_0%,oklch(85%_0.13_87/0.07)_45%,transparent_70%)]"
+          className="absolute -inset-16 rounded-full bg-[radial-gradient(circle,oklch(85%_0.13_87/0.32)_0%,oklch(77%_0.152_72/0.12)_40%,transparent_70%)] motion-safe:animate-[lamp-breathe_7s_ease-in-out_infinite]"
         />
         <Sparkle className="absolute -left-5 top-4 size-7" />
         <Sparkle className="absolute -right-3 top-1/4 size-5" />

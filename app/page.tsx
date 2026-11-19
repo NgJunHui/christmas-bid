@@ -16,10 +16,12 @@ const SANTA_SIZES = "min(80vw, 22rem)";
 export default function WelcomePage() {
   return (
     <>
-      {/* Extra snow just for the welcome screen, on top of the layout's own (different seed so flakes don't overlap). */}
+      {/* The aurora comes from the layout (every page). Extra snow just for the welcome screen,
+          on top of the layout's own (different seed so flakes don't overlap). */}
       <Snowfall count={44} seed={1} />
 
-      <div className="relative z-10 flex min-h-dvh flex-col">
+      {/* overflow-x-clip: Santa's lamp glow is wider than a phone screen; never let it scroll sideways. */}
+      <div className="relative z-10 flex min-h-dvh flex-col overflow-x-clip">
         {/* Same top nav row as every other page: Bidmas centred on a 44px row. */}
         <header className="shrink-0 px-4 pt-[max(1rem,env(safe-area-inset-top))]">
           <div className="flex h-11 items-center justify-center">
@@ -29,10 +31,10 @@ export default function WelcomePage() {
 
         <main className="mx-auto flex w-full max-w-md flex-1 flex-col items-center justify-center gap-8 px-6 pb-[max(2rem,env(safe-area-inset-bottom))] pt-6 text-center short:gap-5">
           <div className="relative w-[min(80vw,22rem)] short:w-[min(60vw,15rem)]">
-            {/* Soft gold spotlight, like the thank-you page and the pitch screen's gift. */}
+            {/* Warm lamp light behind Santa: gold at the core, deep amber at the edge, slowly breathing. */}
             <div
               aria-hidden
-              className="absolute -inset-8 rounded-full bg-[radial-gradient(circle,oklch(85%_0.13_87/0.26)_0%,oklch(85%_0.13_87/0.07)_45%,transparent_70%)]"
+              className="absolute -inset-16 rounded-full bg-[radial-gradient(circle,oklch(85%_0.13_87/0.32)_0%,oklch(77%_0.152_72/0.12)_40%,transparent_70%)] motion-safe:animate-[lamp-breathe_7s_ease-in-out_infinite]"
             />
             <Sparkle className="absolute -left-3 top-6 size-6" />
             <Sparkle className="absolute -right-2 top-1/4 size-4" />

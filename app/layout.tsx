@@ -1,5 +1,6 @@
 import type { Metadata, Viewport } from "next";
 import { Fredoka, Geist } from "next/font/google";
+import { Aurora } from "@/components/brand/aurora";
 import { Snowfall } from "@/components/brand/snowfall";
 import { Providers } from "@/components/providers";
 import "./globals.css";
@@ -34,6 +35,8 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
   return (
     <html lang="en" className={`${display.variable} ${sans.variable}`}>
       <body>
+        {/* Every page: flowing aurora + warm glows, then falling snow, then the page itself. */}
+        <Aurora />
         <Snowfall />
         <div className="relative z-10">
           <Providers>{children}</Providers>

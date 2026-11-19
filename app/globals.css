@@ -187,6 +187,31 @@
   will-change: transform;
 }
 
+/*
+ * Welcome-screen aurora: big soft glows drifting very slowly. Uses `transform` only; the
+ * glows' own placement uses Tailwind's separate rotate/translate properties, so they compose.
+ */
+@keyframes aurora-drift {
+  0%, 100% { transform: translate3d(0, 0, 0) scale(1); }
+  33% { transform: translate3d(5vw, 3vh, 0) scale(1.08); }
+  66% { transform: translate3d(-4vw, 4vh, 0) scale(0.95); }
+}
+.aurora-glow {
+  position: absolute;
+  border-radius: 9999px;
+  /* Longhands, not the `animation` shorthand, so a glow's own animation-direction (reverse) isn't reset. */
+  animation-name: aurora-drift;
+  animation-duration: var(--aurora-d, 24s);
+  animation-timing-function: ease-in-out;
+  animation-iteration-count: infinite;
+  will-change: transform;
+}
+
+/* The lamp glow behind Santa breathes: a slow, slight brighten-and-grow. */
+@keyframes lamp-breathe {
+  0%, 100% { opacity: 0.85; transform: scale(1); }
+  50% { opacity: 1; transform: scale(1.06); }
+}
 
 /* Home hero: Santa drops gently into the snow on first paint. Decelerates, no bounce. */
 @keyframes santa-settle {
@@ -204,5 +229,8 @@
   .snowflake {
     animation: none !important;
     transform: translate3d(0, var(--rest, 40vh), 0);
+  }
+  .aurora-glow {
+    animation: none !important;
   }
 }
