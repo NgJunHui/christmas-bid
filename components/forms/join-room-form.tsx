@@ -91,20 +91,24 @@ export function JoinRoomForm() {
     };
   }, [initialCode, router]);
 
-  const submitCode = async (event: FormEvent) => {
-    event.preventDefault();
-    if (!/^\d{4}$/.test(code)) return setErrors({ code: "Game PINs are 4 digits." });
+  const enterPin = async (pin: string) => {
+    if (!/^\d{4}$/.test(pin)) return setErrors({ code: "Game PINs are 4 digits." });
     setErrors({});
     setChecking(true);
     try {
-      const result = await checkPin(code);
-      if (result === "seated") router.replace(`/room/${code}`);
+      const result = await checkPin(pin);
+      if (result === "seated") router.replace(`/room/${pin}`);
       else setStep("name");
     } catch (error) {
       setErrors({ code: pinProblem(error) });
     } finally {
       setChecking(false);
     }
+  };
+
+  const submitCode = (event: FormEvent) => {
+    event.preventDefault();
+    void enterPin(code);
   };
 
   const submitName = async (event: FormEvent) => {
@@ -149,8 +153,11 @@ export function JoinRoomForm() {
                 className="tabular h-20 text-center text-[2.75rem] font-semibold tracking-[0.35em] indent-[0.35em] placeholder:text-surface-3"
                 value={code}
                 onChange={(e) => {
-                  setCode(e.target.value.replace(/\D/g, "").slice(0, 4));
+                  const next = e.target.value.replace(/\D/g, "").slice(0, 4);
+                  setCode(next);
                   setErrors({});
+                  // The 4th digit (typed or pasted) submits on its own; Enter stays as a fallback/retry.
+                  if (next.length === 4 && next !== code && ready && !checking) void enterPin(next);
                 }}
                 aria-invalid={Boolean(errors.code)}
                 aria-describedby={errors.code ? "code-error" : undefined}
