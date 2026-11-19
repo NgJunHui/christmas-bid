@@ -15,7 +15,6 @@ export function useBidDraft(round: RoundView, credits: number, myBid: number | n
   const [amount, setAmount] = useState(() => Math.min(Math.max(1, myBid ?? 1), Math.max(1, credits)));
   const [text, setText] = useState(String(amount));
   const [busy, setBusy] = useState(false);
-  const [confirmedAt, setConfirmedAt] = useState(0);
   // No reset effect needed: the stage is keyed by attempt ID, so a restart remounts with a fresh draft.
 
   const set = (value: number) => {
@@ -33,16 +32,14 @@ export function useBidDraft(round: RoundView, credits: number, myBid: number | n
   const submit = async () => {
     if (invalid || closed) return;
     setBusy(true);
-    const ok = await act({ type: "BID_SUBMIT", roundId: round.id, attemptId: round.attemptId, amount: typed });
+    await act({ type: "BID_SUBMIT", roundId: round.id, attemptId: round.attemptId, amount: typed });
     setBusy(false);
-    if (ok) setConfirmedAt(Date.now());
   };
 
   const withdraw = async () => {
     setBusy(true);
-    const ok = await act({ type: "BID_WITHDRAW", roundId: round.id, attemptId: round.attemptId });
+    await act({ type: "BID_WITHDRAW", roundId: round.id, attemptId: round.attemptId });
     setBusy(false);
-    if (ok) setConfirmedAt(0);
   };
 
   return {
@@ -63,7 +60,6 @@ export function useBidDraft(round: RoundView, credits: number, myBid: number | n
     overBalance,
     busy,
     closed,
-    justPlaced: confirmedAt > 0 && Date.now() - confirmedAt < 4000,
     submit,
     withdraw,
   };
@@ -190,11 +186,12 @@ export function BidSubmit({ draft }: { draft: BidDraft }) {
             initial={{ opacity: 0, y: 4 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0 }}
-            className="text-center text-sm text-fg-muted"
+            // One line, always: short enough for a 320px phone, so "Withdraw" never jumps rows.
+            // (The button above already says "Bid placed", so no extra confirmation text here.)
+            className="whitespace-nowrap text-center text-sm text-fg-muted"
             role="status"
           >
-            {draft.justPlaced ? <strong className="font-semibold text-gold">Bid placed! </strong> : null}
-            You can still change it before time runs out.{" "}
+            You can still change it.{" "}
             <button
               type="button"
               onClick={draft.withdraw}
@@ -205,8 +202,13 @@ export function BidSubmit({ draft }: { draft: BidDraft }) {
             </button>
           </motion.p>
         ) : (
-          <motion.p key="private" initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="text-center text-sm text-fg-faint short:hidden">
-            Bids stay secret until the timer runs out.
+          <motion.p
+            key="private"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            className="whitespace-nowrap text-center text-sm text-fg-faint short:hidden"
+          >
+            Bids stay secret until time's up.
           </motion.p>
         )}
       </AnimatePresence>

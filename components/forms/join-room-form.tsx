@@ -2,6 +2,7 @@
 
 import { ArrowRight } from "lucide-react";
 import { AnimatePresence, motion } from "motion/react";
+import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useRef, useState, type FormEvent } from "react";
 import { toast } from "sonner";
@@ -155,6 +156,13 @@ export function JoinRoomForm() {
                 aria-describedby={errors.code ? "code-error" : undefined}
               />
             </Field>
+            {/* Small way out for hosts who landed here by mistake. 44px tall for an easy tap. */}
+            <Link
+              href="/create"
+              className="-mt-2 inline-flex min-h-11 items-center self-center rounded-sm px-2 text-sm font-medium text-fg-muted underline decoration-line-strong underline-offset-4 transition-colors hover:text-fg hover:decoration-fg-faint"
+            >
+              Create a room
+            </Link>
             <div className="mt-auto pt-4">
               <Button type="submit" size="lg" className="w-full" loading={checking} disabled={!ready || code.length !== 4}>
                 Enter <ArrowRight />
